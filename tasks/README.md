@@ -19,7 +19,7 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 
 ## Estados
 
-`pendiente` · `en curso` · `completada` · `bloqueada` (requiere acción humana o en terreno)
+`pendiente` · `en curso` · `implementada — validación manual pendiente` (código y tests listos; faltan pruebas a mano en la GUI) · `completada` · `bloqueada` (requiere acción humana o en terreno)
 
 ## Definición de terminado (aplica a toda tarea de código)
 
@@ -73,16 +73,16 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
-| [T-3.1](fase-3/T-3.1-logica-conexion.md) | Lógica de conexión en capas | RF-09, RF-10 | T-2.8 | pendiente |
-| [T-3.2](fase-3/T-3.2-pantalla-conexion.md) | Pantalla de primera configuración / conexión manual | RF-09 | T-3.1 | pendiente |
-| [T-3.3](fase-3/T-3.3-grilla-navegacion.md) | Grilla de boxes por bloques con navegación de fechas | RF-01, RF-02 | T-3.1 | pendiente |
-| [T-3.4](fase-3/T-3.4-reservar-y-cancelar.md) | Formulario de reserva y detalle con cancelación | RF-03, RF-04 | T-3.3 | pendiente |
-| [T-3.5](fase-3/T-3.5-manejo-409.md) | Manejo del 409 con su mensaje | RF-05 | T-3.4 | pendiente |
-| [T-3.6](fase-3/T-3.6-modal-boxes.md) | Modal de configuración de boxes | RF-06 | T-3.3 | pendiente |
-| [T-3.7](fase-3/T-3.7-refresco-automatico.md) | Refresco automático cada 15–30 s | RF-07 | T-3.3 | pendiente |
-| [T-3.8](fase-3/T-3.8-indicador-conexion.md) | Indicador de estado de conexión | RF-08 | T-3.1 | pendiente |
-| [T-3.9](fase-3/T-3.9-mensajes-error.md) | Mensajes de error en español por caso de red | RNF-09 | T-3.1 | pendiente |
-| [T-3.10](fase-3/T-3.10-exportar.md) | Exportar a CSV (opcional) | RF-12 | T-3.3 | pendiente |
+| [T-3.1](fase-3/T-3.1-logica-conexion.md) | Lógica de conexión en capas | RF-09, RF-10 | T-2.8 | implementada — validación manual pendiente |
+| [T-3.2](fase-3/T-3.2-pantalla-conexion.md) | Pantalla de primera configuración / conexión manual | RF-09 | T-3.1 | implementada — validación manual pendiente |
+| [T-3.3](fase-3/T-3.3-grilla-navegacion.md) | Grilla de boxes por bloques con navegación de fechas | RF-01, RF-02 | T-3.1 | implementada — validación manual pendiente |
+| [T-3.4](fase-3/T-3.4-reservar-y-cancelar.md) | Formulario de reserva y detalle con cancelación | RF-03, RF-04 | T-3.3 | implementada — validación manual pendiente |
+| [T-3.5](fase-3/T-3.5-manejo-409.md) | Manejo del 409 con su mensaje | RF-05 | T-3.4 | implementada — validación manual pendiente |
+| [T-3.6](fase-3/T-3.6-modal-boxes.md) | Modal de configuración de boxes | RF-06 | T-3.3 | implementada — validación manual pendiente |
+| [T-3.7](fase-3/T-3.7-refresco-automatico.md) | Refresco automático cada 15–30 s | RF-07 | T-3.3 | implementada — validación manual pendiente |
+| [T-3.8](fase-3/T-3.8-indicador-conexion.md) | Indicador de estado de conexión | RF-08 | T-3.1 | implementada — validación manual pendiente |
+| [T-3.9](fase-3/T-3.9-mensajes-error.md) | Mensajes de error en español por caso de red | RNF-09 | T-3.1 | implementada — validación manual pendiente |
+| [T-3.10](fase-3/T-3.10-exportar.md) | Exportar a CSV (opcional) | RF-12 | T-3.3 | implementada — validación manual pendiente |
 
 ### Fase 4 — Instalación
 

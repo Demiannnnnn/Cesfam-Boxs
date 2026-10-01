@@ -9,7 +9,7 @@
 | 0 — Terreno | bloqueada (requiere visita; supuestos del `.docx` en uso) |
 | 1 — Proyecto base | completada (T-1.1, T-1.2, T-1.3) |
 | 2 — API | completada: 64 tests + `api/scripts/humo.sh` OK |
-| 3 — App | pendiente |
+| 3 — App | implementada: 23 tests Rust + `tsc` OK; verificada a mano la grilla conectada por localhost. Falta validar modales/refresco/broadcast a mano (ver cada T-3.x) |
 | 4 — Instalación | pendiente |
 | 5 — Entrega | borradores de manual y guía en `docs/` |
 
@@ -19,6 +19,7 @@
 |---|---|
 | `dev/documentacion-base` | README, AGENTS.md, docs/, .ai-context/, tasks/ |
 | `dev/fase-1-2-api` | workspace, crate shared, API completa (sobre `dev/documentacion-base`) |
+| `dev/fase-3-app` | app Tauri completa (sobre `dev/fase-1-2-api`) |
 
 ## Supuestos vigentes (hasta cerrar fase 0)
 
@@ -27,4 +28,4 @@
 
 ## Próximo paso
 
-Fase 3 (app Tauri), rama `dev/fase-3-app`.
+Validaciones manuales de fase 3; luego fase 4 (instalar.bat, .msi) en Windows.

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de Boxes</title>
+    <link rel="stylesheet" href="/src/estilos.css" />
+  </head>
+  <body>
+    <header class="barra">
+      <h1 class="barra__titulo">Gestión de Boxes</h1>
+      <div id="conexion" class="conexion" role="status" aria-live="polite"></div>
+      <div class="barra__acciones">
+        <button id="btn-exportar" type="button" class="boton boton--secundario">Exportar</button>
+        <button id="btn-boxes" type="button" class="boton boton--secundario">⚙ Boxes</button>
+      </div>
+    </header>
+
+    <nav class="navegacion" aria-label="Cambiar de día">
+      <button id="btn-anterior" type="button" class="boton">◄ Anterior</button>
+      <button id="btn-hoy" type="button" class="boton">Hoy</button>
+      <button id="btn-siguiente" type="button" class="boton">Siguiente ►</button>
+      <label class="navegacion__fecha">
+        <span class="oculto">Elegir fecha</span>
+        <input id="selector-fecha" type="date" />
+      </label>
+      <h2 id="fecha-larga" class="navegacion__titulo"></h2>
+    </nav>
+
+    <div id="aviso" class="aviso" role="alert" hidden></div>
+
+    <main id="grilla" class="grilla"></main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

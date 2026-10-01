@@ -1,0 +1,29 @@
+[package]
+name = "gestion-box-app"
+description = "App de escritorio de Gestión de Boxes CESFAM (cliente Tauri)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "gestion_box_app"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+gestion-box-shared.workspace = true
+tauri.workspace = true
+tauri-plugin-dialog.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
