@@ -49,25 +49,25 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
-| [T-1.1](fase-1/T-1.1-workspace-cargo.md) | Crear el workspace de Cargo con `api/`, `app/` y `shared/` | RNF-05 | — | pendiente |
-| [T-1.2](fase-1/T-1.2-tipos-compartidos.md) | Definir en `shared` los structs Box y Reserva con serde | — | T-1.1 | pendiente |
+| [T-1.1](fase-1/T-1.1-workspace-cargo.md) | Crear el workspace de Cargo con `api/`, `app/` y `shared/` | RNF-05 | — | completada |
+| [T-1.2](fase-1/T-1.2-tipos-compartidos.md) | Definir en `shared` los structs Box y Reserva con serde | — | T-1.1 | completada |
 | [T-1.3](fase-1/T-1.3-repositorio-y-readme.md) | Repositorio y README con instrucciones de compilación | — | T-1.1 | completada |
 
 ### Fase 2 — API (Axum + rusqlite)
 
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
-| [T-2.1](fase-2/T-2.1-esquema-sqlite.md) | Esquema SQLite con `UNIQUE(box_id, fecha, bloque)` | RF-05 | T-1.2 | pendiente |
-| [T-2.2](fase-2/T-2.2-rutas-programdata.md) | Resolver rutas en `C:\ProgramData\GestionBox\` | RNF-04 | T-1.1 | pendiente |
-| [T-2.3](fase-2/T-2.3-endpoints-boxes.md) | `GET/POST /boxes` (+ `PATCH /boxes/{id}`) | RF-06 | T-2.1 | pendiente |
-| [T-2.4](fase-2/T-2.4-endpoints-reservas.md) | `GET/POST /reservas`, `DELETE /reservas/{id}` | RF-03, RF-04 | T-2.1 | pendiente |
-| [T-2.5](fase-2/T-2.5-conflicto-409.md) | 409 Conflict al violar el UNIQUE | RF-05 | T-2.4 | pendiente |
-| [T-2.6](fase-2/T-2.6-health.md) | `GET /health` | RF-08 | T-1.2 | pendiente |
-| [T-2.7](fase-2/T-2.7-cors.md) | `CorsLayer` permisivo | RNF-07 | T-2.6 | pendiente |
-| [T-2.8](fase-2/T-2.8-listener-udp.md) | Listener UDP 8001 en hilo aparte | RF-09, RNF-03 | T-1.2 | pendiente |
-| [T-2.9](fase-2/T-2.9-respaldo-rotacion.md) | Respaldo al iniciar y rotación a 30 | RF-11 | T-2.1, T-2.2 | pendiente |
-| [T-2.10](fase-2/T-2.10-tracing-log.md) | `tracing` hacia `api.log` | RNF-10 | T-2.2 | pendiente |
-| [T-2.11](fase-2/T-2.11-probar-endpoints.md) | Probar todos los endpoints (tests + curl) | — | T-2.3 – T-2.10 | pendiente |
+| [T-2.1](fase-2/T-2.1-esquema-sqlite.md) | Esquema SQLite con `UNIQUE(box_id, fecha, bloque)` | RF-05 | T-1.2 | completada |
+| [T-2.2](fase-2/T-2.2-rutas-programdata.md) | Resolver rutas en `C:\ProgramData\GestionBox\` | RNF-04 | T-1.1 | completada |
+| [T-2.3](fase-2/T-2.3-endpoints-boxes.md) | `GET/POST /boxes` (+ `PATCH /boxes/{id}`) | RF-06 | T-2.1 | completada |
+| [T-2.4](fase-2/T-2.4-endpoints-reservas.md) | `GET/POST /reservas`, `DELETE /reservas/{id}` | RF-03, RF-04 | T-2.1 | completada |
+| [T-2.5](fase-2/T-2.5-conflicto-409.md) | 409 Conflict al violar el UNIQUE | RF-05 | T-2.4 | completada |
+| [T-2.6](fase-2/T-2.6-health.md) | `GET /health` | RF-08 | T-1.2 | completada |
+| [T-2.7](fase-2/T-2.7-cors.md) | `CorsLayer` permisivo | RNF-07 | T-2.6 | completada |
+| [T-2.8](fase-2/T-2.8-listener-udp.md) | Listener UDP 8001 en hilo aparte | RF-09, RNF-03 | T-1.2 | completada |
+| [T-2.9](fase-2/T-2.9-respaldo-rotacion.md) | Respaldo al iniciar y rotación a 30 | RF-11 | T-2.1, T-2.2 | completada |
+| [T-2.10](fase-2/T-2.10-tracing-log.md) | `tracing` hacia `api.log` | RNF-10 | T-2.2 | completada |
+| [T-2.11](fase-2/T-2.11-probar-endpoints.md) | Probar todos los endpoints (tests + curl) | — | T-2.3 – T-2.10 | completada |
 
 ### Fase 3 — App Tauri (cliente)
 

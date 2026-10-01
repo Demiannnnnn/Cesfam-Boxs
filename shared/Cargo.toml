@@ -1,0 +1,16 @@
+[package]
+name = "gestion-box-shared"
+description = "Tipos de dominio y contrato compartidos entre la API y la app de Gestión de Boxes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
