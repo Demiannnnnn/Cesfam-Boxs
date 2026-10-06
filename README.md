@@ -33,7 +33,7 @@ arrancar solo, recuperarse solo y explicar en español qué revisar cuando algo 
 - Crear y cancelar reservas (nombre del funcionario obligatorio, motivo opcional).
 - Administrar la lista de boxes (agregar, renombrar, desactivar).
 - API local en un PC designado como servidor, que arranca sola como servicio de Windows.
-- Descubrimiento automático del servidor en la red (dirección guardada → broadcast UDP → ingreso manual).
+- Descubrimiento automático del servidor en la red (dirección guardada → localhost → broadcast UDP → ingreso manual).
 - Respaldo automático de la base de datos en cada arranque (últimas 30 copias).
 
 **No incluye**
@@ -95,7 +95,7 @@ Cesfam-Boxs/
 ├── api/                   ← API Axum + SQLite (gestion-box-api.exe)
 ├── app/                   ← App de escritorio Tauri (cliente)
 ├── shared/                ← tipos de dominio compartidos
-├── instalador/            ← instalar.bat, desinstalar.bat (fase 4)
+├── instalador/            ← instalar.bat, desinstalar.bat (fase 4, aún no creada)
 ├── docs/                  ← documentación para personas
 ├── .ai-context/           ← contexto condensado para agentes de IA
 └── tasks/                 ← tareas con pasos de ejecución y validaciones
@@ -108,12 +108,35 @@ Cesfam-Boxs/
 | Rust (rustup o paquete del sistema) | 1.80 | API, shared y backend de la app |
 | Node.js + npm | 20 | Frontend de la app y CLI de Tauri |
 | Linux: `webkit2gtk-4.1`, `gtk3`, `libayatana-appindicator` | — | Compilar Tauri en desarrollo |
+| macOS: Xcode Command Line Tools (`xcode-select --install`) | — | Compilar Tauri en desarrollo |
 | Windows: WebView2 + MSVC Build Tools | — | Compilar los entregables finales |
 
-> El desarrollo puede hacerse en Linux. Los entregables (`.exe`, `.msi`) se compilan en
+> El desarrollo puede hacerse en Linux o macOS. Los entregables (`.exe`, `.msi`) se compilan en
 > Windows o con compilación cruzada; ver [`docs/06-instalacion.md`](docs/06-instalacion.md).
 
 ## Compilar y ejecutar
+
+### Inicio rápido (primera vez)
+
+```bash
+git clone <url-del-repositorio> Cesfam-Boxs
+cd Cesfam-Boxs
+git switch develop
+
+# Terminal 1: levantar la API
+GESTIONBOX_DATA_DIR=./datos-dev cargo run -p gestion-box-api
+
+# Terminal 2: abrir la app (la primera compilación tarda varios minutos)
+cd app
+npm ci
+npm run tauri dev
+```
+
+Con la API corriendo en el mismo PC, la app la encuentra sola (prueba dirección guardada →
+`localhost` → broadcast UDP). Si no la encuentra, pide ingresar la dirección a mano:
+usa `127.0.0.1:8000`.
+
+### Comandos individuales
 
 ```bash
 # API en modo desarrollo (datos en ./datos-dev en vez de C:\ProgramData\GestionBox)
@@ -148,6 +171,9 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cd app && npm run check     # tipos TypeScript
+
+# Prueba de humo: levanta la API en una carpeta temporal y recorre todos los endpoints
+bash api/scripts/humo.sh
 ```
 
 Una tarea solo está terminada cuando pasan sus **validaciones** (ver `tasks/`) y los cuatro
@@ -182,4 +208,5 @@ El estado de cada tarea está en [`tasks/README.md`](tasks/README.md).
   contrato de la API, app, instalación, manual del funcionario y pruebas de aceptación.
 - [`.ai-context/`](.ai-context/README.md) — contexto compacto para agentes de IA.
 - [`tasks/`](tasks/README.md) — tareas con pasos, buenas prácticas y validaciones.
-- Documento fuente: `Gestión de Boxes CESFAM — Requisitos y tareas.docx` (raíz del repositorio).
+- Documento fuente: `Gestión de Boxes CESFAM — Requisitos y tareas.docx`. No está versionado
+  en el repositorio; pídelo al responsable del proyecto.

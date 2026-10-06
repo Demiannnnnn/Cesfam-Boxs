@@ -16,4 +16,4 @@ quien tenga que reinstalar o revisar el sistema en el futuro.
 | 09 | [Glosario](09-glosario.md) | Todos | ¿Qué significa cada término? |
 
 Fuente de verdad de los requisitos: `Gestión de Boxes CESFAM — Requisitos y tareas.docx`
-(raíz del repositorio). Si este directorio y el `.docx` se contradicen, avisa al responsable.
+(no está versionado en el repositorio; pídelo al responsable). Si este directorio y el `.docx` se contradicen, avisa al responsable.
