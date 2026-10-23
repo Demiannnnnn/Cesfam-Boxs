@@ -28,6 +28,7 @@ Dónde vive cada responsabilidad. Actualizar al crear o mover módulos.
 | Errores → español | `app/src-tauri/src/errores.rs` | RNF-09 |
 | Exportar CSV | `app/src-tauri/src/exportar.rs` | RF-12 |
 | Grilla | `app/src/componentes/grilla.ts` | RF-01, RF-02 |
+| Agrupar bloques en tramos | `app/src/tramos.ts` | RF-01 |
 | Modales | `app/src/componentes/modales.ts` | RF-03, RF-04, RF-06, RF-09, RF-12 |
 | Diálogo base (pausa refresco) | `app/src/componentes/dialogo.ts` | RF-07 |
 | Aviso temporal | `app/src/componentes/aviso.ts` | RF-05 |

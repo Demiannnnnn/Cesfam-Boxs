@@ -27,6 +27,22 @@ export function sumarDias(fecha: string, dias: number): string {
   return aTexto(resultado);
 }
 
+/** `true` si la fecha cae sábado o domingo. */
+export function esFinDeSemana(fecha: string): boolean {
+  const dia = aDate(fecha).getDay();
+  return dia === 0 || dia === 6;
+}
+
+/**
+ * Día hábil siguiente (`sentido` 1) o anterior (`sentido` -1), saltando sábados
+ * y domingos: la planilla del CESFAM solo planifica de lunes a viernes.
+ */
+export function diaHabil(fecha: string, sentido: 1 | -1): string {
+  let resultado = sumarDias(fecha, sentido);
+  while (esFinDeSemana(resultado)) resultado = sumarDias(resultado, sentido);
+  return resultado;
+}
+
 /** Primer día del mes de `fecha`. */
 export function inicioDeMes(fecha: string): string {
   return `${fecha.slice(0, 8)}01`;

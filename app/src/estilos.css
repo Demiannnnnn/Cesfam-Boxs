@@ -9,8 +9,9 @@
   --color-primario: #16658c;
   --color-primario-hover: #0f5170;
   --color-libre-hover: #e3f1f8;
-  --color-ocupado: #dff3e8;
-  --color-ocupado-borde: #7ad6aa;
+  --color-ocupado: #2f74b5;
+  --color-ocupado-borde: #245d93;
+  --color-ocupado-hover: #245d93;
   --color-actual: #fff6d6;
   --color-peligro: #b42318;
   --color-exito: #067647;
@@ -215,6 +216,7 @@ body {
 }
 
 /* ─── Grilla ─────────────────────────────────────────────────── */
+/* Boxes en filas, bloques en columnas. Libre = blanco (no compite), ocupado = barra azul. */
 
 .grilla {
   flex: 1;
@@ -237,47 +239,90 @@ body {
 
 .grilla__tabla {
   width: 100%;
+  min-width: 60rem;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
 }
 
-.grilla__tabla thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 0.55rem 0.4rem;
-  background: #eef2f5;
-  border-bottom: 1px solid var(--color-borde);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.grilla__col-box {
+  width: 9rem;
 }
 
-.grilla__tabla td,
-.grilla__tabla tbody th {
-  border-bottom: 1px solid #edf0f3;
-  border-left: 1px solid #edf0f3;
-  padding: 2px;
-  height: 2.6rem;
+.grilla__tabla thead th {
+  position: sticky;
+  z-index: 2;
+  background: #eef2f5;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grilla__tabla thead tr:first-child th {
+  top: 0;
+  height: 1.9rem;
+}
+
+.grilla__tabla thead tr:nth-child(2) th {
+  top: 1.9rem;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.grilla__esquina {
+  left: 0;
+  z-index: 3 !important;
+  padding: 0 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-borde);
+  border-right: 1px solid var(--color-borde);
+}
+
+.grilla__periodo {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-texto-suave);
 }
 
 .grilla__hora {
-  width: 4.5rem;
-  text-align: center;
+  padding: 0.35rem 0;
+  font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   color: var(--color-texto-suave);
+  border-left: 1px solid var(--color-borde);
+}
+
+.grilla__hora--actual {
+  background: var(--color-actual) !important;
+  color: var(--color-texto) !important;
+}
+
+.grilla__box {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 0 0.75rem;
+  background: var(--color-superficie);
+  border-right: 1px solid var(--color-borde);
+  border-bottom: 1px solid #edf0f3;
+  text-align: left;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.grilla__fila--actual th,
-.grilla__fila--actual td {
-  background: var(--color-actual);
+.grilla__tabla td {
+  height: 3.2rem;
+  padding: 3px 2px;
+  border-bottom: 1px solid #edf0f3;
+  border-left: 1px dashed #edf0f3;
 }
 
-.grilla__fila--pasada .celda--libre {
-  background: repeating-linear-gradient(-45deg, transparent 0 6px, #f2f4f7 6px 12px);
+/* Corte mañana | tarde: la misma división "BOX AM / BOX PM" de la planilla. */
+.grilla__tabla .grilla__inicio-tarde {
+  border-left: 2px solid #9aa4ae;
 }
 
 .celda {
@@ -286,9 +331,9 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 0.2rem 0.45rem;
+  padding: 0.2rem 0.5rem;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 5px;
   font: inherit;
   text-align: left;
   background: transparent;
@@ -300,10 +345,8 @@ body {
   cursor: not-allowed;
 }
 
-.celda--libre:hover:not(:disabled)::after {
-  content: attr(data-texto);
-  color: var(--color-primario);
-  font-weight: 600;
+.celda--libre {
+  align-items: center;
 }
 
 .celda--libre:hover:not(:disabled) {
@@ -311,13 +354,29 @@ body {
   border-color: #b2ddf0;
 }
 
+.celda--libre:hover:not(:disabled)::after {
+  content: attr(data-texto);
+  color: var(--color-primario);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.celda--actual {
+  background: var(--color-actual);
+}
+
+.celda--pasada {
+  background: repeating-linear-gradient(-45deg, transparent 0 6px, #f2f4f7 6px 12px);
+}
+
 .celda--ocupada {
   background: var(--color-ocupado);
   border-color: var(--color-ocupado-borde);
+  color: #fff;
 }
 
 .celda--ocupada:hover:not(:disabled) {
-  filter: brightness(0.96);
+  background: var(--color-ocupado-hover);
 }
 
 .celda__nombre {
@@ -329,7 +388,7 @@ body {
 
 .celda__motivo {
   font-size: 0.8rem;
-  color: var(--color-texto-suave);
+  opacity: 0.85;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

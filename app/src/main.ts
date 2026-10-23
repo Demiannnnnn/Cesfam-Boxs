@@ -14,7 +14,7 @@ import { renderizarGrilla } from "./componentes/grilla";
 import { abrirBoxes, abrirConexionManual, abrirDetalle, abrirExportar, abrirReservar } from "./componentes/modales";
 import { porId } from "./dom";
 import { estado } from "./estado";
-import { fechaLarga, hoy, sumarDias } from "./fechas";
+import { diaHabil, fechaLarga, hoy } from "./fechas";
 import type { ErrorUi, ResultadoConexion } from "./tipos";
 
 /** Intervalo de refresco automático (RF-07 pide entre 15 y 30 s). */
@@ -43,7 +43,7 @@ function renderizar(): void {
           void refrescar();
         },
       }),
-    alElegirOcupada: (reserva) => abrirDetalle(reserva, () => void refrescar()),
+    alElegirOcupada: (tramo) => abrirDetalle(tramo, () => void refrescar()),
   });
 }
 
@@ -106,8 +106,8 @@ function alConectar(resultado: ResultadoConexion): void {
 }
 
 function enlazarEventos(): void {
-  porId("btn-anterior").addEventListener("click", () => irA(sumarDias(estado.fecha, -1)));
-  porId("btn-siguiente").addEventListener("click", () => irA(sumarDias(estado.fecha, 1)));
+  porId("btn-anterior").addEventListener("click", () => irA(diaHabil(estado.fecha, -1)));
+  porId("btn-siguiente").addEventListener("click", () => irA(diaHabil(estado.fecha, 1)));
   porId("btn-hoy").addEventListener("click", () => irA(hoy()));
   elementos.selectorFecha.addEventListener("change", () => irA(elementos.selectorFecha.value));
   porId("btn-boxes").addEventListener("click", () => abrirBoxes(() => void refrescar()));

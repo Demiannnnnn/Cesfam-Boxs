@@ -9,9 +9,10 @@ import { save } from "@tauri-apps/plugin-dialog";
 
 import { api } from "../api";
 import { boton, campo, el } from "../dom";
-import { etiquetaBloque, estado, nombreBox } from "../estado";
+import { etiquetaBloque, estado, nombreBox, rangoHorario } from "../estado";
 import { fechaCorta, fechaHora, finDeMes, inicioDeMes } from "../fechas";
 import { textos } from "../textos";
+import type { Tramo } from "../tramos";
 import type { BoxAtencion, ErrorUi, Reserva, ResultadoConexion } from "../tipos";
 import { mostrarAviso } from "./aviso";
 import { abrirDialogo, confirmar } from "./dialogo";
@@ -122,19 +123,24 @@ export function abrirReservar(box: BoxAtencion, bloque: number, acciones: Accion
 
 // ─── Detalle y cancelación ─────────────────────────────────────────────────
 
-export function abrirDetalle(reserva: Reserva, alCambiar: () => void): void {
+/**
+ * Detalle de un tramo (bloques seguidos de una misma reserva). Cancelar libera
+ * todos sus bloques: el usuario ve una sola barra y espera que desaparezca entera.
+ */
+export function abrirDetalle(tramo: Tramo, alCambiar: () => void): void {
   const dialogo = abrirDialogo(textos.detalle.titulo);
-  const hora = etiquetaBloque(reserva.bloque);
+  const horas = rangoHorario(tramo.desde, tramo.hasta);
+  const primera = tramo.reservas[0];
   dialogo.cuerpo.append(
     el(
       "div",
       { clase: "datos" },
-      soloLectura(textos.reserva.box, nombreBox(reserva.box_id)),
-      soloLectura(textos.reserva.fecha, fechaCorta(reserva.fecha)),
-      soloLectura(textos.reserva.hora, hora),
-      soloLectura(textos.detalle.funcionario, reserva.funcionario),
-      soloLectura(textos.detalle.motivo, reserva.motivo ?? textos.detalle.sinMotivo),
-      soloLectura(textos.detalle.creada, fechaHora(reserva.creada_en)),
+      soloLectura(textos.reserva.box, nombreBox(tramo.box_id)),
+      soloLectura(textos.reserva.fecha, primera ? fechaCorta(primera.fecha) : ""),
+      soloLectura(textos.detalle.horario, horas),
+      soloLectura(textos.detalle.funcionario, tramo.funcionario),
+      soloLectura(textos.detalle.motivo, tramo.motivo ?? textos.detalle.sinMotivo),
+      soloLectura(textos.detalle.creada, primera ? fechaHora(primera.creada_en) : ""),
     ),
   );
 
@@ -142,24 +148,30 @@ export function abrirDetalle(reserva: Reserva, alCambiar: () => void): void {
     textos.detalle.cancelar,
     async () => {
       const seguro = await confirmar(
-        textos.detalle.confirmarCancelacion(reserva.funcionario, hora),
+        textos.detalle.confirmarCancelacion(tramo.funcionario, horas),
         textos.detalle.siCancelar,
       );
       if (!seguro) return;
-      try {
-        await api.cancelarReserva(reserva.id);
-        mostrarAviso(textos.detalle.cancelada, "exito");
-        dialogo.cerrar();
-      } catch (error) {
-        const e = error as ErrorUi;
-        if (e.codigo === "no_encontrado") {
-          mostrarAviso(textos.detalle.yaCancelada);
-          dialogo.cerrar();
-        } else {
-          dialogo.mostrarError(e.mensaje);
-          return;
+      let yaCanceladas = 0;
+      for (const reserva of tramo.reservas) {
+        try {
+          await api.cancelarReserva(reserva.id);
+        } catch (error) {
+          const e = error as ErrorUi;
+          if (e.codigo !== "no_encontrado") {
+            dialogo.mostrarError(e.mensaje);
+            alCambiar();
+            return;
+          }
+          yaCanceladas += 1;
         }
       }
+      if (yaCanceladas === tramo.reservas.length) {
+        mostrarAviso(textos.detalle.yaCancelada);
+      } else {
+        mostrarAviso(textos.detalle.cancelada, "exito");
+      }
+      dialogo.cerrar();
       alCambiar();
     },
     "peligro",

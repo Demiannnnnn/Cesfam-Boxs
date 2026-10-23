@@ -6,32 +6,36 @@ Una sola pantalla, textos en español, acciones de un clic (RNF-11).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Gestión de Boxes                         ● Conectado a PC-SOME   [⚙ Boxes]  │
-│ [◄ Anterior] [Hoy] [Siguiente ►]   [ 01/10/2026 📅 ]   Miércoles 1 de octubre│
-├────────────┬───────────────┬───────────────┬───────────────┬────────────────┤
-│ Bloque     │ Box 1         │ Box 2         │ Box Dental    │ Box 4          │
-├────────────┼───────────────┼───────────────┼───────────────┼────────────────┤
-│ 08:00      │ María Pérez   │               │               │                │
-│ 08:30      │               │ Juan Soto     │               │                │
-│ 09:00      │               │               │               │                │
-│ …          │               │               │               │                │
-│ 19:30      │               │               │               │                │
-└────────────┴───────────────┴───────────────┴───────────────┴────────────────┘
+│ Gestión de Boxes                     ● Conectado a PC-SOME [Exportar][⚙ Boxes]│
+│ [◄ Anterior] [Hoy] [Siguiente ►]   [ 22/10/2026 📅 ]   Jueves, 22 de octubre  │
+├────────┬──────────────── MAÑANA ───────────────┬──────────── TARDE ──────────┤
+│ Box    │ 08:00  09:00  10:00  11:00  12:00 13:00│ 14:00  15:00  16:00 …       │
+├────────┼────────────────────────────────────────┼─────────────────────────────┤
+│ Box 3  │       [ Nutri. Javiera · Ingresos ]    │                             │
+│ Box 17 │ [ E.U. Olivia ─────────────────────── ]│                             │
+│ Box 12 │                                        │ [ E.U. Verónica ]           │
+└────────┴────────────────────────────────────────┴─────────────────────────────┘
 ```
 
-- Celda libre: fondo claro, al pasar el mouse dice "Reservar". Clic → modal de reserva.
-- Celda ocupada: muestra el nombre del funcionario (y el motivo como texto secundario).
-  Clic → modal de detalle con botón **Cancelar reserva**.
-- La fila del bloque actual (si se ve el día de hoy) se resalta.
-- Bloques pasados del día de hoy se ven atenuados, pero siguen siendo clicables
-  (el CESFAM puede registrar algo a posteriori).
+- Boxes en filas (fijas a la izquierda) y bloques de 30 min en columnas; el encabezado
+  muestra una etiqueta por hora y queda fijo al desplazarse.
+- Una línea gruesa separa **mañana** y **tarde** (`shared::horario::HORA_INICIO_TARDE`),
+  igual que "BOX AM / BOX PM" en la planilla que usaba el CESFAM.
+- Celda libre: blanca, al pasar el mouse muestra "+". Clic → modal de reserva.
+- Bloques seguidos del mismo box con el mismo funcionario y motivo se dibujan como **una
+  sola barra** azul con el nombre (y el motivo debajo). Clic → detalle del tramo; **Cancelar
+  reserva** libera todos sus bloques.
+- Para hoy, la hora en curso se resalta en el encabezado y los bloques libres ya pasados se
+  ven rayados, pero siguen siendo clicables (el CESFAM puede registrar algo a posteriori).
+- **Anterior / Siguiente** saltan sábados y domingos (la planilla solo planificaba de lunes a
+  viernes); el selector de fecha permite ir a cualquier día.
 
 ## Modales
 
 | Modal | Campos / contenido | Botones |
 |---|---|---|
 | Reservar | Box, fecha y hora (solo lectura); **Nombre del funcionario** (obligatorio); Motivo (opcional) | Reservar · Cerrar |
-| Detalle | Box, fecha, hora, funcionario, motivo, creada el… | Cancelar reserva (pide confirmación) · Cerrar |
+| Detalle | Box, fecha, horario (desde – hasta), funcionario, motivo, creada el… | Cancelar reserva (pide confirmación) · Cerrar |
 | Boxes | Lista de boxes con nombre editable y casilla "activo"; campo "Nuevo box" | Agregar · Guardar nombre · Cerrar |
 | Conexión | "Nombre del PC servidor o IP"; texto de ayuda | Conectar · Buscar de nuevo |
 

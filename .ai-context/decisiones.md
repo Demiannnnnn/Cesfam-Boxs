@@ -51,3 +51,11 @@ RNF-10 exige ese nombre. → Appender no rotativo; al arrancar, si `api.log` > 1
 ## ADR-013 · 2026-10-01 · aceptada — Carpeta de datos configurable
 → `GESTIONBOX_DATA_DIR` sobrescribe `C:\ProgramData\GestionBox`; fuera de Windows el defecto
 es `./datos-dev`. → Desarrollo y tests en Linux sin tocar rutas de producción.
+
+## ADR-014 · 2026-10-23 · aceptada — Grilla con boxes en filas y tramos fusionados
+La planilla que reemplazamos piensa en medio día (BOX AM / BOX PM) y una mañana se anota en
+una celda; la grilla anterior repetía el nombre en ~10 celdas. → Boxes en filas, bloques en
+columnas, corte mañana/tarde (`HORA_INICIO_TARDE`, pendiente T-0.1) y bloques contiguos con
+igual funcionario y motivo agrupados en una barra (`app/src/tramos.ts`). El modelo no cambia:
+sigue una fila por bloque y el `UNIQUE` (ADR-003). → Cancelar desde la barra cancela cada
+bloque del tramo.

@@ -12,6 +12,15 @@ pub const HORA_INICIO: u32 = 8;
 pub const MINUTOS_POR_BLOQUE: u32 = 30;
 /// Cantidad de bloques por día (08:00–20:00 → 24).
 pub const CANTIDAD_BLOQUES: u8 = 24;
+/// Hora en que empieza la tarde (PM). La planilla del CESFAM divide cada día en
+/// "BOX AM" y "BOX PM"; la grilla y los atajos Mañana/Tarde usan este corte.
+/// Pendiente de confirmar en terreno (T-0.1).
+pub const HORA_INICIO_TARDE: u32 = 14;
+
+/// Primer bloque de la tarde (14:00 → 12).
+pub const fn bloque_inicio_tarde() -> u8 {
+    ((HORA_INICIO_TARDE - HORA_INICIO) * 60 / MINUTOS_POR_BLOQUE) as u8
+}
 
 /// Hora de inicio de un bloque.
 pub fn hora_inicio_bloque(bloque: Bloque) -> NaiveTime {
@@ -30,6 +39,8 @@ pub struct Horario {
     pub hora_inicio: u32,
     pub minutos_por_bloque: u32,
     pub cantidad_bloques: u8,
+    /// Primer bloque de la tarde; los anteriores son la mañana.
+    pub bloque_inicio_tarde: u8,
     /// Etiquetas `HH:MM` de cada bloque, en orden.
     pub etiquetas: Vec<String>,
 }
@@ -41,6 +52,7 @@ impl Horario {
             hora_inicio: HORA_INICIO,
             minutos_por_bloque: MINUTOS_POR_BLOQUE,
             cantidad_bloques: CANTIDAD_BLOQUES,
+            bloque_inicio_tarde: bloque_inicio_tarde(),
             etiquetas: Bloque::todos().map(etiqueta_bloque).collect(),
         }
     }
@@ -65,5 +77,12 @@ mod tests {
 
         assert_eq!(horario.etiquetas.len(), usize::from(CANTIDAD_BLOQUES));
         assert_eq!(horario.etiquetas[1], "08:30");
+    }
+
+    #[test]
+    fn la_tarde_empieza_a_las_14_y_cae_dentro_del_dia() {
+        let tarde = Bloque::new(bloque_inicio_tarde()).unwrap();
+
+        assert_eq!(etiqueta_bloque(tarde), "14:00");
     }
 }

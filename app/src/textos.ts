@@ -9,8 +9,10 @@ export const textos = {
     sinConexion: "Sin conexión",
   },
   grilla: {
-    columnaHora: "Hora",
-    reservar: "Reservar",
+    columnaBox: "Box",
+    manana: "Mañana",
+    tarde: "Tarde",
+    reservarEn: (box: string, hora: string) => `Reservar ${box} a las ${hora}`,
     sinBoxes: "No hay boxes activos. Agrégalos con el botón «⚙ Boxes».",
     cargando: "Cargando…",
   },
@@ -28,12 +30,13 @@ export const textos = {
   detalle: {
     titulo: "Detalle de la reserva",
     funcionario: "Funcionario",
+    horario: "Horario",
     motivo: "Motivo",
     sinMotivo: "—",
     creada: "Reservada el",
     cancelar: "Cancelar reserva",
-    confirmarCancelacion: (nombre: string, hora: string) =>
-      `¿Cancelar la reserva de ${nombre} a las ${hora}?`,
+    confirmarCancelacion: (nombre: string, horas: string) =>
+      `¿Cancelar la reserva de ${nombre} (${horas})?`,
     siCancelar: "Sí, cancelar",
     yaCancelada: "Esa reserva ya había sido cancelada.",
     cancelada: "Reserva cancelada.",

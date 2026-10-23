@@ -35,6 +35,8 @@ export interface Horario {
   hora_inicio: number;
   minutos_por_bloque: number;
   cantidad_bloques: number;
+  /** Primer bloque de la tarde (PM); los anteriores son la mañana (AM). */
+  bloque_inicio_tarde: number;
   etiquetas: string[];
 }
 
