@@ -78,6 +78,15 @@ pub async fn listar_reservas(
     Ok(Json(reservas))
 }
 
+/// `GET /funcionarios`: nombres recientes para autocompletar.
+pub async fn listar_funcionarios(State(estado): State<AppState>) -> Resultado<impl IntoResponse> {
+    let hoy = Fecha::hoy();
+    let nombres = estado
+        .con_db(move |conn| servicio::listar_funcionarios(conn, hoy))
+        .await?;
+    Ok(Json(nombres))
+}
+
 /// `POST /reservas` (RF-03, RF-05).
 pub async fn crear_reserva(
     State(estado): State<AppState>,

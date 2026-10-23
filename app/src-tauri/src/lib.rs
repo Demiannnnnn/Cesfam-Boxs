@@ -33,6 +33,8 @@ pub fn ejecutar() {
             comandos::crear_box,
             comandos::actualizar_box,
             comandos::listar_reservas,
+            comandos::listar_reservas_rango,
+            comandos::listar_funcionarios,
             comandos::crear_reserva,
             comandos::crear_reservas,
             comandos::cancelar_reserva,

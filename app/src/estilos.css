@@ -386,6 +386,25 @@ body {
   background: var(--color-ocupado-hover);
 }
 
+.celda--parcial {
+  background: #dbe9f6;
+  border-color: #a9c8e6;
+  color: var(--color-texto);
+}
+
+.celda--parcial:hover:not(:disabled) {
+  background: #c9ddf0;
+}
+
+/* Buscador de funcionario: resalta sus reservas y atenúa el resto. */
+.celda--destacada {
+  box-shadow: 0 0 0 3px #fdb022;
+}
+
+.celda--atenuada {
+  opacity: 0.3;
+}
+
 .celda__nombre {
   font-weight: 600;
   overflow: hidden;
@@ -399,6 +418,89 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ─── Vista semanal ─────────────────────────────────────────── */
+
+.semana td {
+  height: 3.6rem;
+}
+
+.semana .celda {
+  justify-content: flex-start;
+  padding-top: 0.35rem;
+}
+
+.semana .celda--libre {
+  justify-content: center;
+}
+
+.semana__inicio-dia,
+.grilla__tabla .semana__inicio-dia {
+  border-left: 2px solid #9aa4ae;
+}
+
+.semana tfoot td,
+.semana tfoot th {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  height: auto;
+  padding: 0.45rem 0.35rem;
+  background: #f3effa;
+  border-top: 1px solid #c9bde6;
+  font-size: 0.8rem;
+  vertical-align: top;
+}
+
+.semana__libres-titulo {
+  z-index: 2 !important;
+  color: #5b3fa0;
+}
+
+.semana__libres {
+  overflow-wrap: anywhere;
+  color: #3d2a73;
+  font-weight: 600;
+}
+
+/* ─── Selector de vista y buscador ───────────────────────────── */
+
+.vistas {
+  display: flex;
+  margin-right: 0.5rem;
+}
+
+.boton--vista {
+  border-radius: 0;
+}
+
+.boton--vista:first-child {
+  border-radius: var(--radio) 0 0 var(--radio);
+}
+
+.boton--vista:last-child {
+  border-radius: 0 var(--radio) var(--radio) 0;
+  border-left: none;
+}
+
+.boton--vista[aria-pressed="true"],
+.boton--vista[aria-pressed="true"]:hover {
+  background: var(--color-primario);
+  border-color: var(--color-primario);
+  color: #fff;
+}
+
+.navegacion__filtro {
+  margin-left: auto;
+}
+
+.navegacion__filtro input {
+  font: inherit;
+  width: 15rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
 }
 
 /* ─── Modal de reserva ──────────────────────────────────────── */

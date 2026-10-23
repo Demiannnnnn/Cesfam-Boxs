@@ -27,9 +27,11 @@ export interface AccionesReserva {
  * Hasta dónde llega por defecto una reserva que empieza en `desde`: el fin de su
  * medio día (como "BOX AM" / "BOX PM"), sin pisar la siguiente reserva del box.
  */
-export function hastaPorDefecto(box: BoxAtencion, desde: number, horario: Horario): number {
+export function hastaPorDefecto(box: BoxAtencion, fecha: string, desde: number, horario: Horario): number {
   const finPeriodo = desde < horario.bloque_inicio_tarde ? horario.bloque_inicio_tarde - 1 : horario.cantidad_bloques - 1;
-  const ocupados = new Set(estado.reservas.filter((r) => r.box_id === box.id).map((r) => r.bloque));
+  const ocupados = new Set(
+    estado.reservas.filter((r) => r.box_id === box.id && r.fecha === fecha).map((r) => r.bloque),
+  );
   let hasta = desde;
   while (hasta < finPeriodo && !ocupados.has(hasta + 1)) hasta += 1;
   return hasta;
@@ -51,11 +53,16 @@ function selector(opciones: Array<[number, string]>, valor: number, etiqueta: st
   return select;
 }
 
-export function abrirReservar(box: BoxAtencion, desde: number, hasta: number | null, acciones: AccionesReserva): void {
+export function abrirReservar(
+  box: BoxAtencion,
+  fecha: string,
+  desde: number,
+  hasta: number | null,
+  acciones: AccionesReserva,
+): void {
   const horario = estado.horario;
   if (!horario) return;
   const dialogo = abrirDialogo(textos.reserva.titulo);
-  const fecha = estado.fecha;
   const total = horario.cantidad_bloques;
   const tarde = horario.bloque_inicio_tarde;
   const indices = Array.from({ length: total }, (_, i) => i);
@@ -64,7 +71,7 @@ export function abrirReservar(box: BoxAtencion, desde: number, hasta: number | n
   const selDesde = selector(indices.map((i) => [i, etiquetaBloque(i)]), desde, textos.reserva.desde);
   const selHasta = selector(
     indices.map((i) => [i, etiquetaFinBloque(i)]),
-    hasta ?? hastaPorDefecto(box, desde, horario),
+    hasta ?? hastaPorDefecto(box, fecha, desde, horario),
     textos.reserva.hasta,
   );
   const fijar = (a: number, b: number) => {
@@ -81,8 +88,10 @@ export function abrirReservar(box: BoxAtencion, desde: number, hasta: number | n
   );
 
   // ── Personas ──
+  // `lista-funcionarios` (index.html) sugiere nombres ya usados, para no escribir el
+  // mismo funcionario de tres formas distintas.
   const funcionario = el("input", {
-    atributos: { type: "text", maxlength: "80", required: "", autocomplete: "off" },
+    atributos: { type: "text", maxlength: "80", required: "", autocomplete: "off", list: "lista-funcionarios" },
   });
   funcionario.value = estado.ultimoFuncionario;
   const motivo = el("input", { atributos: { type: "text", maxlength: "200", autocomplete: "off" } });

@@ -17,6 +17,10 @@
     </header>
 
     <nav class="navegacion" aria-label="Cambiar de día">
+      <div class="vistas" role="group" aria-label="Vista">
+        <button id="btn-vista-dia" type="button" class="boton boton--vista" aria-pressed="true">Día</button>
+        <button id="btn-vista-semana" type="button" class="boton boton--vista" aria-pressed="false">Semana</button>
+      </div>
       <button id="btn-anterior" type="button" class="boton">◄ Anterior</button>
       <button id="btn-hoy" type="button" class="boton">Hoy</button>
       <button id="btn-siguiente" type="button" class="boton">Siguiente ►</button>
@@ -25,6 +29,11 @@
         <input id="selector-fecha" type="date" />
       </label>
       <h2 id="fecha-larga" class="navegacion__titulo"></h2>
+      <label class="navegacion__filtro">
+        <span class="oculto">Buscar funcionario</span>
+        <input id="filtro-funcionario" type="search" list="lista-funcionarios" placeholder="Buscar funcionario…" autocomplete="off" />
+      </label>
+      <datalist id="lista-funcionarios"></datalist>
     </nav>
 
     <div id="aviso" class="aviso" role="alert" hidden></div>

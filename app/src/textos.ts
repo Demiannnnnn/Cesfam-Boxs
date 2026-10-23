@@ -16,6 +16,15 @@ export const textos = {
     sinBoxes: "No hay boxes activos. Agrégalos con el botón «⚙ Boxes».",
     cargando: "Cargando…",
   },
+  semana: {
+    am: "AM",
+    pm: "PM",
+    libres: "Libres",
+    ninguno: "Ninguno",
+    todos: "Todos",
+    yOtros: (n: number) => `y ${n} más`,
+    reservarEn: (box: string, dia: string, periodo: string) => `Reservar ${box} el ${dia} ${periodo}`,
+  },
   reserva: {
     titulo: "Reservar box",
     box: "Box",

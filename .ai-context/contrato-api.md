@@ -37,6 +37,7 @@ CodigoError = datos_invalidos | no_encontrado | bloque_ocupado | nombre_duplicad
 | PATCH | `/boxes/{id}` | `CambiosBox` | 200 `BoxAtencion` | 400, 404, 409 nombre_duplicado |
 | GET | `/reservas` | `?fecha=` ó `?desde=&hasta=` | 200 `[Reserva]` orden (fecha, bloque, box_id) | 400 |
 | POST | `/reservas` | `NuevaReserva` | 201 `Reserva` | 400, 404, 409 bloque_ocupado, 422 box_inactivo |
+| GET | `/funcionarios` | — | 200 `[String]` nombres de los últimos 180 días, sin repetir, recientes primero (máx. 300) | — |
 | POST | `/reservas/lote` | `NuevoLote` | 201 `ResultadoLote` | 400, 404, 409 bloque_ocupado, 422 box_inactivo |
 | DELETE | `/reservas/{id}` | — | 204 | 404 |
 | DELETE | `/reservas/grupo/{grupo}` | `?desde=` | 200 `ResultadoCancelacion` | 400, 404 |

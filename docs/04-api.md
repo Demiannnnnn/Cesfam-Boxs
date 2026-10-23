@@ -81,6 +81,16 @@ Una de dos formas:
 ]
 ```
 
+### `GET /funcionarios` — nombres para autocompletar
+
+Nombres de funcionarios con reservas en los últimos 180 días, sin repetir (sin distinguir
+mayúsculas), los más recientes primero, máximo 300. La app los sugiere al reservar y en el
+buscador, para que el mismo funcionario no quede escrito de tres formas.
+
+```json
+200 [ "E.U. Olivia", "E.U. Verónica", "Nutri. Javiera" ]
+```
+
 ### `POST /reservas` — crear reserva (RF-03, RF-05)
 
 ```json

@@ -223,6 +223,28 @@ pub async fn listar_reservas(
         .map_err(|e| estado.error(e))
 }
 
+/// Reservas de un rango de fechas (vista semanal).
+#[tauri::command]
+pub async fn listar_reservas_rango(
+    estado: State<'_, EstadoApp>,
+    desde: String,
+    hasta: String,
+) -> Resultado<Vec<Reserva>> {
+    let (desde, hasta) = (parsear_fecha(&desde)?, parsear_fecha(&hasta)?);
+    let cliente = estado.cliente()?;
+    cliente
+        .reservas_del_rango(desde, hasta)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Nombres de funcionarios recientes, para autocompletar y filtrar.
+#[tauri::command]
+pub async fn listar_funcionarios(estado: State<'_, EstadoApp>) -> Resultado<Vec<String>> {
+    let cliente = estado.cliente()?;
+    cliente.funcionarios().await.map_err(|e| estado.error(e))
+}
+
 /// Crea una reserva y recuerda el nombre del funcionario en este PC.
 #[tauri::command]
 pub async fn crear_reserva(

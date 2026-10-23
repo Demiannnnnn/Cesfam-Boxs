@@ -15,6 +15,10 @@ const SQL_OBTENER: &str = "SELECT id, box_id, fecha, bloque, funcionario, motivo
 const SQL_CREAR: &str =
     "INSERT INTO reserva (box_id, fecha, bloque, funcionario, motivo, creada_en, grupo)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
+const SQL_FUNCIONARIOS: &str = "SELECT funcionario FROM reserva WHERE fecha >= ?1
+     GROUP BY funcionario COLLATE NOCASE
+     ORDER BY MAX(fecha) DESC, COUNT(*) DESC
+     LIMIT ?2";
 const SQL_FIJAR_GRUPO: &str = "UPDATE reserva SET grupo = ?2 WHERE id = ?1";
 const SQL_ELIMINAR: &str = "DELETE FROM reserva WHERE id = ?1";
 const SQL_ELIMINAR_GRUPO: &str = "DELETE FROM reserva WHERE grupo = ?1 AND fecha >= ?2";
@@ -102,6 +106,21 @@ pub fn crear(conn: &Connection, nueva: &ReservaValida) -> Result<Reserva, ErrorR
             }
         })?;
     obtener(conn, conn.last_insert_rowid())
+}
+
+/// Nombres de funcionarios con reservas desde `desde`, sin repetir (sin distinguir
+/// mayúsculas), los más recientes primero. Alimenta el autocompletado.
+pub fn funcionarios_recientes(
+    conn: &Connection,
+    desde: Fecha,
+    limite: usize,
+) -> Result<Vec<String>, ErrorRepositorio> {
+    let limite = i64::try_from(limite).unwrap_or(i64::MAX);
+    let mut sentencia = conn.prepare_cached(SQL_FUNCIONARIOS)?;
+    let nombres = sentencia
+        .query_map(params![desde.to_string(), limite], |fila| fila.get(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(nombres)
 }
 
 /// Asigna `grupo` a una reserva ya creada (la primera de un lote da su id al grupo).
@@ -231,6 +250,25 @@ mod tests {
         )
         .unwrap();
         assert_eq!(quedan.len(), 2, "quedan la del 01 del grupo y la suelta");
+    }
+
+    #[test]
+    fn funcionarios_sin_repetir_y_mas_recientes_primero() {
+        let conn = preparar();
+        let con_nombre = |nombre: &str, fecha: &str, bloque: u8| ReservaValida {
+            funcionario: nombre.into(),
+            ..reserva(1, fecha, bloque)
+        };
+        crear(&conn, &con_nombre("Ana", "2026-10-01", 0)).unwrap();
+        crear(&conn, &con_nombre("ana", "2026-10-02", 0)).unwrap();
+        crear(&conn, &con_nombre("Berta", "2026-10-05", 0)).unwrap();
+        crear(&conn, &con_nombre("Vieja", "2026-01-01", 0)).unwrap();
+
+        let nombres = funcionarios_recientes(&conn, "2026-09-01".parse().unwrap(), 10).unwrap();
+
+        assert_eq!(nombres.len(), 2);
+        assert_eq!(nombres[0], "Berta");
+        assert!(nombres[1].eq_ignore_ascii_case("ana"));
     }
 
     #[test]

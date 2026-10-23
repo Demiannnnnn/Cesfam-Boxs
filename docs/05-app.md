@@ -30,6 +30,25 @@ Una sola pantalla, textos en español, acciones de un clic (RNF-11).
 - **Anterior / Siguiente** saltan sábados y domingos (la planilla solo planificaba de lunes a
   viernes); el selector de fecha permite ir a cualquier día.
 
+## Vista semanal
+
+El selector **Día | Semana** (a la izquierda de la navegación) cambia a una tabla de lunes a
+viernes con dos columnas por día, **AM** y **PM**, como la planilla:
+
+- Cada celda dice quién tiene el box ese medio día. Azul fuerte = medio día completo; celeste
+  = parcial (el tooltip muestra el horario de cada persona). Clic → abre ese día en la vista Día.
+- Celda vacía → reservar ese box ese medio día (el modal propone el periodo completo).
+- La fila final **Libres** (fija abajo) lista los boxes sin ninguna reserva en cada medio
+  día: reemplaza la hoja "BOX DISPONIBLE" que el CESFAM armaba a mano.
+- **Anterior / Siguiente** avanzan una semana.
+
+## Buscador de funcionario
+
+El campo **Buscar funcionario…** (a la derecha) resalta en ambas vistas las reservas cuyo
+funcionario contiene el texto (sin distinguir tildes ni mayúsculas) y atenúa el resto:
+responde "¿dónde está Verónica esta semana?". Sugiere los nombres de `GET /funcionarios`, igual
+que el campo de nombre del modal de reserva.
+
 ## Modales
 
 | Modal | Campos / contenido | Botones |

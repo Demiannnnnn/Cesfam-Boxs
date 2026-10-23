@@ -213,6 +213,11 @@ impl ClienteApi {
         Self::json(peticion).await
     }
 
+    /// `GET /funcionarios`: nombres recientes para autocompletar.
+    pub async fn funcionarios(&self) -> Result<Vec<String>, ErrorCliente> {
+        Self::json(self.http.get(self.url("/funcionarios"))).await
+    }
+
     /// `POST /reservas` (RF-03, RF-05).
     pub async fn crear_reserva(&self, nueva: &NuevaReserva) -> Result<Reserva, ErrorCliente> {
         Self::json(self.http.post(self.url("/reservas")).json(nueva)).await

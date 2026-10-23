@@ -24,6 +24,10 @@ pub const MAX_FUNCIONARIO: usize = 80;
 pub const MAX_MOTIVO: usize = 200;
 /// Máximo de días que abarca una consulta por rango (exportación).
 pub const MAX_DIAS_RANGO: i64 = 366;
+/// Días hacia atrás que se miran para sugerir nombres de funcionarios.
+pub const DIAS_FUNCIONARIOS: i64 = 180;
+/// Máximo de nombres sugeridos.
+pub const MAX_FUNCIONARIOS: usize = 300;
 /// Máximo de fechas en un lote: alcanza para todos los días hábiles de dos meses.
 pub const MAX_FECHAS_LOTE: usize = 46;
 
@@ -177,6 +181,17 @@ pub fn listar_reservas(
         }
     };
     reservas::listar_por_rango(conn, desde, hasta)
+        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Reserva))
+}
+
+/// Funcionarios que reservaron en los últimos [`DIAS_FUNCIONARIOS`] días, para que la
+/// app sugiera nombres ya escritos y no se mezclen "Veronica" y "Verónica".
+pub fn listar_funcionarios(conn: &Connection, hoy: Fecha) -> Result<Vec<String>, ErrorServicio> {
+    let desde = hoy
+        .como_naive()
+        .checked_sub_signed(chrono::Duration::days(DIAS_FUNCIONARIOS))
+        .map_or(hoy, Fecha::new);
+    reservas::funcionarios_recientes(conn, desde, MAX_FUNCIONARIOS)
         .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Reserva))
 }
 

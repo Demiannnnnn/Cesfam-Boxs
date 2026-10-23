@@ -43,6 +43,35 @@ export function diaHabil(fecha: string, sentido: 1 | -1): string {
   return resultado;
 }
 
+/** Lunes de la semana de `fecha`. */
+export function inicioSemana(fecha: string): string {
+  const dia = aDate(fecha).getDay(); // 0 = domingo
+  return sumarDias(fecha, dia === 0 ? -6 : 1 - dia);
+}
+
+/** Lunes a viernes de la semana de `fecha`. */
+export function diasHabilesDeSemana(fecha: string): string[] {
+  const lunes = inicioSemana(fecha);
+  return [0, 1, 2, 3, 4].map((i) => sumarDias(lunes, i));
+}
+
+/** "Lun 19" para encabezados de la vista semanal. */
+export function diaCorto(fecha: string): string {
+  const d = aDate(fecha);
+  const nombre = d.toLocaleDateString("es-CL", { weekday: "short" }).replace(".", "");
+  return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${d.getDate()}`;
+}
+
+/** "Semana del 19 al 23 de octubre de 2026" (o "del 29 de septiembre al 3 de octubre…"). */
+export function tituloSemana(fecha: string): string {
+  const dias = diasHabilesDeSemana(fecha);
+  const inicio = aDate(dias[0] ?? fecha);
+  const fin = aDate(dias[4] ?? fecha);
+  const mes = (d: Date) => d.toLocaleDateString("es-CL", { month: "long" });
+  const desde = inicio.getMonth() === fin.getMonth() ? `${inicio.getDate()}` : `${inicio.getDate()} de ${mes(inicio)}`;
+  return `Semana del ${desde} al ${fin.getDate()} de ${mes(fin)} de ${fin.getFullYear()}`;
+}
+
 /** Primer día del mes de `fecha`. */
 export function inicioDeMes(fecha: string): string {
   return `${fecha.slice(0, 8)}01`;

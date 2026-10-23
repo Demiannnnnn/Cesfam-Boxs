@@ -6,7 +6,7 @@
  */
 import { el } from "../dom";
 import { bloquesTerminados, hoy } from "../fechas";
-import { estado, etiquetaBloque, rangoHorario } from "../estado";
+import { coincideFiltro, estado, etiquetaBloque, rangoHorario } from "../estado";
 import { textos } from "../textos";
 import { agruparEnTramos, type Tramo } from "../tramos";
 import type { BoxAtencion, Horario } from "../tipos";
@@ -145,10 +145,14 @@ function td(desde: number, abarca: number, contexto: Contexto, clasesExtra: stri
 function celdaOcupada(tramo: Tramo, contexto: Contexto): HTMLTableCellElement {
   const horas = rangoHorario(tramo.desde, tramo.hasta);
   const detalle = [tramo.funcionario, horas, tramo.motivo].filter(Boolean).join(" · ");
+  const coincide = coincideFiltro(tramo.funcionario);
+  const clases = ["celda", "celda--ocupada"];
+  if (coincide === true) clases.push("celda--destacada");
+  if (coincide === false) clases.push("celda--atenuada");
   const boton = el(
     "button",
     {
-      clase: "celda celda--ocupada",
+      clase: clases.join(" "),
       atributos: { type: "button", title: detalle, "aria-label": detalle },
       alHacerClic: () => contexto.acciones.alElegirOcupada(tramo),
     },

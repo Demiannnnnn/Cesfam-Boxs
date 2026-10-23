@@ -298,3 +298,25 @@ async fn cancelar_grupo_desde_fecha_y_luego_404() {
     assert_eq!(segunda.estado, StatusCode::NOT_FOUND);
     assert_eq!(sin_desde.estado, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn funcionarios_lista_nombres_recientes_sin_repetir() {
+    let router = router_de_prueba();
+    let box_id = crear_box(&router, "Box 17").await;
+    let hoy = chrono::Local::now().date_naive();
+    for bloque in [0, 1] {
+        let fecha = hoy.format("%Y-%m-%d").to_string();
+        pedir(
+            &router,
+            "POST",
+            "/reservas",
+            Some(reserva(box_id, &fecha, bloque)),
+        )
+        .await;
+    }
+
+    let r = pedir(&router, "GET", "/funcionarios", None).await;
+
+    assert_eq!(r.estado, StatusCode::OK);
+    assert_eq!(r.cuerpo, json!(["María Pérez"]));
+}

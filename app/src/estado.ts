@@ -5,9 +5,16 @@
 import { hoy } from "./fechas";
 import type { BoxAtencion, EstadoConexion, Horario, Reserva } from "./tipos";
 
+export type Vista = "dia" | "semana";
+
 export interface EstadoPantalla {
-  /** Día visible, `AAAA-MM-DD`. */
+  /** Día visible (en la vista semanal, cualquier día de la semana), `AAAA-MM-DD`. */
   fecha: string;
+  vista: Vista;
+  /** Texto del buscador de funcionario; vacío = sin filtro. */
+  filtro: string;
+  /** Nombres recientes para autocompletar (`GET /funcionarios`). */
+  funcionarios: string[];
   horario: Horario | null;
   boxes: BoxAtencion[];
   reservas: Reserva[];
@@ -19,6 +26,9 @@ export interface EstadoPantalla {
 
 export const estado: EstadoPantalla = {
   fecha: hoy(),
+  vista: "dia",
+  filtro: "",
+  funcionarios: [],
   horario: null,
   boxes: [],
   reservas: [],
@@ -48,4 +58,18 @@ export function etiquetaFinBloque(bloque: number): string {
 /** "09:00 – 11:00" para un rango de bloques inclusivo. */
 export function rangoHorario(desde: number, hasta: number): string {
   return `${etiquetaBloque(desde)} – ${etiquetaFinBloque(hasta)}`;
+}
+
+/** Minúsculas y sin tildes, para comparar nombres como los escribe la gente. */
+function normalizar(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+/**
+ * Resultado del buscador para un nombre: `null` si no hay filtro, `true` si el
+ * nombre lo contiene (sin distinguir tildes ni mayúsculas).
+ */
+export function coincideFiltro(funcionario: string): boolean | null {
+  const filtro = normalizar(estado.filtro);
+  return filtro ? normalizar(funcionario).includes(filtro) : null;
 }

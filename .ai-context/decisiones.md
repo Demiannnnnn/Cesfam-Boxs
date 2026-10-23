@@ -68,3 +68,10 @@ fechas dentro de una transacción (todo o nada, u `omitir_ocupados`), y una colu
 "este día y los siguientes". → Se mantiene una fila por bloque y el `UNIQUE` de ADR-003; no hay
 "consultar y luego insertar". La app usa siempre el lote; `POST /reservas` queda por
 compatibilidad.
+
+## ADR-016 · 2026-10-23 · aceptada — Vista semanal, libres y buscador de funcionario
+La planilla se leía por semana (AM/PM por día), con una hoja aparte de boxes libres, y
+organizada por persona. → Selector Día | Semana: boxes × (lun–vie × AM/PM) con fila "Libres";
+buscador que resalta un funcionario en ambas vistas; `GET /funcionarios` (nombres recientes)
+para sugerir y no duplicar escrituras. → Sigue siendo una sola pantalla con dos modos; no se
+agrega una tabla de funcionarios (el dato sigue siendo texto en la reserva).

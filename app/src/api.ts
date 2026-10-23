@@ -52,6 +52,9 @@ export const api = {
   actualizarBox: (id: number, cambios: CambiosBox) =>
     llamar<BoxAtencion>("actualizar_box", { id, cambios }),
   listarReservas: (fecha: string) => llamar<Reserva[]>("listar_reservas", { fecha }),
+  listarReservasRango: (desde: string, hasta: string) =>
+    llamar<Reserva[]>("listar_reservas_rango", { desde, hasta }),
+  listarFuncionarios: () => llamar<string[]>("listar_funcionarios"),
   crearReservas: (lote: NuevoLote) => llamar<ResultadoLote>("crear_reservas", { lote }),
   cancelarReserva: (id: number) => llamar<void>("cancelar_reserva", { id }),
   cancelarGrupo: (grupo: number, desde: string) =>
