@@ -34,8 +34,15 @@ Una sola pantalla, textos en español, acciones de un clic (RNF-11).
 
 | Modal | Campos / contenido | Botones |
 |---|---|---|
-| Reservar | Box, fecha y hora (solo lectura); **Nombre del funcionario** (obligatorio); Motivo (opcional) | Reservar · Cerrar |
-| Detalle | Box, fecha, horario (desde – hasta), funcionario, motivo, creada el… | Cancelar reserva (pide confirmación) · Cerrar |
+| Reservar | Box y fecha (solo lectura); **Horario** desde/hasta con atajos *Mañana · Tarde · Día completo*; **Nombre del funcionario** (obligatorio); Motivo (opcional); *Repetir cada semana hasta el…*; resumen de lo que se va a reservar | Reservar · (Reservar solo los libres) · Cerrar |
+| Detalle | Box, fecha, horario (desde – hasta), funcionario, motivo, creada el… | Cancelar reserva — o, si es parte de una serie, *Cancelar solo este día* · *Cancelar este día y los siguientes* (piden confirmación) · Cerrar |
+
+**Reservar un rango.** Un clic en una celda libre propone desde ese bloque hasta el fin de su
+medio día (mañana o tarde), sin pisar la siguiente reserva del box: es el "BOX AM / BOX PM" de
+la planilla. También se puede **arrastrar** sobre celdas libres seguidas de un box para elegir
+el rango. Todo se envía en un solo `POST /reservas/lote`. Si parte del rango o de la serie ya
+está tomada no se reserva nada y el modal ofrece **Reservar solo los libres**; el aviso final
+dice cuántos bloques se omitieron.
 | Boxes | Lista de boxes con nombre editable y casilla "activo"; campo "Nuevo box" | Agregar · Guardar nombre · Cerrar |
 | Conexión | "Nombre del PC servidor o IP"; texto de ayuda | Conectar · Buscar de nuevo |
 

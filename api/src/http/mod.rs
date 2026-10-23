@@ -6,7 +6,7 @@ mod handlers;
 
 pub use error::ErrorApi;
 
-use axum::routing::{get, patch};
+use axum::routing::{get, patch, post};
 use axum::Router;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
@@ -26,9 +26,14 @@ pub fn crear_router(estado: AppState) -> Router {
             "/reservas",
             get(handlers::listar_reservas).post(handlers::crear_reserva),
         )
+        .route("/reservas/lote", post(handlers::crear_lote))
         .route(
             "/reservas/{id}",
             axum::routing::delete(handlers::cancelar_reserva),
+        )
+        .route(
+            "/reservas/grupo/{grupo}",
+            axum::routing::delete(handlers::cancelar_grupo),
         )
         .fallback(handlers::ruta_inexistente)
         // CORS permisivo (RNF-07): la API solo es accesible en la red local, no hay

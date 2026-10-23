@@ -34,7 +34,9 @@ pub fn ejecutar() {
             comandos::actualizar_box,
             comandos::listar_reservas,
             comandos::crear_reserva,
+            comandos::crear_reservas,
             comandos::cancelar_reserva,
+            comandos::cancelar_grupo,
             comandos::exportar_csv,
         ])
         .run(tauri::generate_context!());

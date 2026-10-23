@@ -204,3 +204,97 @@ async fn cancelar_dos_veces_devuelve_204_y_luego_404() {
     assert_eq!(segunda.estado, StatusCode::NOT_FOUND);
     assert_eq!(segunda.cuerpo["codigo"], "no_encontrado");
 }
+
+fn lote(box_id: i64, fechas: &[&str], desde: u8, hasta: u8, omitir: bool) -> Value {
+    json!({
+        "box_id": box_id, "fechas": fechas, "desde": desde, "hasta": hasta,
+        "funcionario": "E.U. Olivia", "omitir_ocupados": omitir
+    })
+}
+
+#[tokio::test]
+async fn lote_crea_la_serie_y_devuelve_201_con_grupo() {
+    let router = router_de_prueba();
+    let box_id = crear_box(&router, "Box 17").await;
+
+    let r = pedir(
+        &router,
+        "POST",
+        "/reservas/lote",
+        Some(lote(box_id, &["2026-10-05", "2026-10-12"], 0, 11, false)),
+    )
+    .await;
+
+    assert_eq!(r.estado, StatusCode::CREATED, "{:?}", r.cuerpo);
+    let creadas = r.cuerpo["creadas"].as_array().unwrap();
+    assert_eq!(creadas.len(), 24);
+    assert_eq!(creadas[0]["grupo"], creadas[23]["grupo"]);
+    assert_eq!(r.cuerpo["omitidos"], json!([]));
+}
+
+#[tokio::test]
+async fn lote_con_conflicto_devuelve_409_y_con_omitir_informa_omitidos() {
+    let router = router_de_prueba();
+    let box_id = crear_box(&router, "Box 17").await;
+    pedir(
+        &router,
+        "POST",
+        "/reservas",
+        Some(reserva(box_id, "2026-10-12", 3)),
+    )
+    .await;
+
+    let todo_o_nada = pedir(
+        &router,
+        "POST",
+        "/reservas/lote",
+        Some(lote(box_id, &["2026-10-05", "2026-10-12"], 0, 5, false)),
+    )
+    .await;
+    let solo_libres = pedir(
+        &router,
+        "POST",
+        "/reservas/lote",
+        Some(lote(box_id, &["2026-10-05", "2026-10-12"], 0, 5, true)),
+    )
+    .await;
+
+    assert_eq!(todo_o_nada.estado, StatusCode::CONFLICT);
+    assert_eq!(todo_o_nada.cuerpo["codigo"], "bloque_ocupado");
+    assert_eq!(solo_libres.estado, StatusCode::CREATED);
+    assert_eq!(solo_libres.cuerpo["creadas"].as_array().unwrap().len(), 11);
+    assert_eq!(
+        solo_libres.cuerpo["omitidos"],
+        json!([{ "fecha": "2026-10-12", "bloque": 3 }])
+    );
+}
+
+#[tokio::test]
+async fn cancelar_grupo_desde_fecha_y_luego_404() {
+    let router = router_de_prueba();
+    let box_id = crear_box(&router, "Box 17").await;
+    let creado = pedir(
+        &router,
+        "POST",
+        "/reservas/lote",
+        Some(lote(
+            box_id,
+            &["2026-10-05", "2026-10-12", "2026-10-19"],
+            0,
+            1,
+            false,
+        )),
+    )
+    .await;
+    let grupo = creado.cuerpo["creadas"][0]["grupo"].as_i64().unwrap();
+    let uri = format!("/reservas/grupo/{grupo}?desde=2026-10-12");
+
+    let primera = pedir(&router, "DELETE", &uri, None).await;
+    let segunda = pedir(&router, "DELETE", &uri, None).await;
+    let sin_desde = pedir(&router, "DELETE", &format!("/reservas/grupo/{grupo}"), None).await;
+
+    assert_eq!(primera.estado, StatusCode::OK);
+    assert_eq!(primera.cuerpo, json!({ "canceladas": 4 }));
+    assert_eq!(segunda.estado, StatusCode::NOT_FOUND);
+    assert_eq!(sin_desde.estado, StatusCode::BAD_REQUEST);
+}

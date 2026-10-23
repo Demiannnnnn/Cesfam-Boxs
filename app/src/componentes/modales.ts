@@ -1,6 +1,6 @@
 /**
- * Modales de la app: reservar (RF-03), detalle/cancelar (RF-04), boxes (RF-06),
- * conexión manual (RF-09) y exportar (RF-12).
+ * Modales de la app: detalle/cancelar (RF-04), boxes (RF-06), conexión manual
+ * (RF-09) y exportar (RF-12). El de reserva vive en `reservar.ts`.
  *
  * Cada modal recibe sus dependencias por parámetro y avisa al terminar mediante
  * callbacks; no conoce el ciclo de refresco.
@@ -9,134 +9,60 @@ import { save } from "@tauri-apps/plugin-dialog";
 
 import { api } from "../api";
 import { boton, campo, el } from "../dom";
-import { etiquetaBloque, estado, nombreBox, rangoHorario } from "../estado";
+import { estado, nombreBox, rangoHorario } from "../estado";
 import { fechaCorta, fechaHora, finDeMes, inicioDeMes } from "../fechas";
 import { textos } from "../textos";
 import type { Tramo } from "../tramos";
-import type { BoxAtencion, ErrorUi, Reserva, ResultadoConexion } from "../tipos";
+import type { BoxAtencion, ErrorUi, ResultadoConexion } from "../tipos";
 import { mostrarAviso } from "./aviso";
 import { abrirDialogo, confirmar } from "./dialogo";
-
-/** Deshabilita un botón mientras corre `tarea` (evita dobles envíos). */
-async function mientrasOcupado<T>(
-  boton: HTMLButtonElement,
-  textoOcupado: string,
-  tarea: () => Promise<T>,
-): Promise<T> {
-  const original = boton.textContent;
-  boton.disabled = true;
-  boton.textContent = textoOcupado;
-  try {
-    return await tarea();
-  } finally {
-    boton.disabled = false;
-    boton.textContent = original;
-  }
-}
-
-function soloLectura(etiqueta: string, valor: string): HTMLElement {
-  return el(
-    "div",
-    { clase: "dato" },
-    el("span", { clase: "dato__etiqueta", texto: etiqueta }),
-    el("span", { clase: "dato__valor", texto: valor }),
-  );
-}
-
-// ─── Reservar ──────────────────────────────────────────────────────────────
-
-export interface AccionesReserva {
-  alReservar: (reserva: Reserva) => void;
-  /** Error que obliga a refrescar la grilla (409, box inactivo). */
-  alConflicto: (error: ErrorUi) => void;
-}
-
-export function abrirReservar(box: BoxAtencion, bloque: number, acciones: AccionesReserva): void {
-  const dialogo = abrirDialogo(textos.reserva.titulo);
-  const fecha = estado.fecha;
-
-  const funcionario = el("input", {
-    atributos: { type: "text", maxlength: "80", required: "", autocomplete: "off" },
-  });
-  funcionario.value = estado.ultimoFuncionario;
-  const motivo = el("input", { atributos: { type: "text", maxlength: "200", autocomplete: "off" } });
-
-  const enviar = el("button", {
-    clase: "boton boton--primario",
-    texto: textos.reserva.confirmar,
-    atributos: { type: "submit" },
-  });
-  const formulario = el(
-    "form",
-    { clase: "formulario" },
-    el(
-      "div",
-      { clase: "datos" },
-      soloLectura(textos.reserva.box, box.nombre),
-      soloLectura(textos.reserva.fecha, fechaCorta(fecha)),
-      soloLectura(textos.reserva.hora, etiquetaBloque(bloque)),
-    ),
-    campo(textos.reserva.funcionario, funcionario),
-    campo(textos.reserva.motivo, motivo),
-  );
-  formulario.id = "formulario-reserva";
-  enviar.setAttribute("form", formulario.id);
-
-  formulario.addEventListener("submit", async (evento) => {
-    evento.preventDefault();
-    const nombre = funcionario.value.trim();
-    if (!nombre) {
-      dialogo.mostrarError(textos.reserva.funcionarioObligatorio);
-      funcionario.focus();
-      return;
-    }
-    dialogo.mostrarError(null);
-    try {
-      const reserva = await mientrasOcupado(enviar, textos.reserva.enviando, () =>
-        api.crearReserva({
-          box_id: box.id,
-          fecha,
-          bloque,
-          funcionario: nombre,
-          motivo: motivo.value.trim() || null,
-        }),
-      );
-      estado.ultimoFuncionario = reserva.funcionario;
-      dialogo.cerrar();
-      acciones.alReservar(reserva);
-    } catch (error) {
-      const e = error as ErrorUi;
-      if (e.codigo === "bloque_ocupado" || e.codigo === "box_inactivo") {
-        dialogo.cerrar();
-        acciones.alConflicto(e);
-      } else {
-        dialogo.mostrarError(e.mensaje);
-      }
-    }
-  });
-
-  dialogo.cuerpo.append(formulario);
-  dialogo.pie.prepend(enviar);
-  (funcionario.value ? motivo : funcionario).focus();
-  if (funcionario.value) funcionario.select();
-}
+import { mientrasOcupado, soloLectura } from "./formulario";
 
 // ─── Detalle y cancelación ─────────────────────────────────────────────────
+
+/** Grupo común a todas las reservas del tramo, si lo hay (rango o serie). */
+function grupoDelTramo(tramo: Tramo): number | null {
+  const grupo = tramo.reservas[0]?.grupo ?? null;
+  return grupo !== null && tramo.reservas.every((r) => r.grupo === grupo) ? grupo : null;
+}
+
+/** Cancela cada bloque del tramo. Devuelve `false` si falló algo distinto de "ya cancelada". */
+async function cancelarTramo(tramo: Tramo, mostrarError: (m: string) => void): Promise<boolean> {
+  let yaCanceladas = 0;
+  for (const reserva of tramo.reservas) {
+    try {
+      await api.cancelarReserva(reserva.id);
+    } catch (error) {
+      const e = error as ErrorUi;
+      if (e.codigo !== "no_encontrado") {
+        mostrarError(e.mensaje);
+        return false;
+      }
+      yaCanceladas += 1;
+    }
+  }
+  if (yaCanceladas === tramo.reservas.length) mostrarAviso(textos.detalle.yaCancelada);
+  else mostrarAviso(textos.detalle.cancelada, "exito");
+  return true;
+}
 
 /**
  * Detalle de un tramo (bloques seguidos de una misma reserva). Cancelar libera
  * todos sus bloques: el usuario ve una sola barra y espera que desaparezca entera.
+ * Si el tramo es parte de una serie, ofrece cancelar también las semanas siguientes.
  */
 export function abrirDetalle(tramo: Tramo, alCambiar: () => void): void {
   const dialogo = abrirDialogo(textos.detalle.titulo);
   const horas = rangoHorario(tramo.desde, tramo.hasta);
   const primera = tramo.reservas[0];
+  const fecha = primera?.fecha ?? estado.fecha;
+  const grupo = grupoDelTramo(tramo);
   dialogo.cuerpo.append(
     el(
       "div",
       { clase: "datos" },
       soloLectura(textos.reserva.box, nombreBox(tramo.box_id)),
-      soloLectura(textos.reserva.fecha, primera ? fechaCorta(primera.fecha) : ""),
+      soloLectura(textos.reserva.fecha, fechaCorta(fecha)),
       soloLectura(textos.detalle.horario, horas),
       soloLectura(textos.detalle.funcionario, tramo.funcionario),
       soloLectura(textos.detalle.motivo, tramo.motivo ?? textos.detalle.sinMotivo),
@@ -144,39 +70,46 @@ export function abrirDetalle(tramo: Tramo, alCambiar: () => void): void {
     ),
   );
 
-  const cancelar = boton(
-    textos.detalle.cancelar,
+  const cancelarDia = boton(
+    grupo === null ? textos.detalle.cancelar : textos.detalle.cancelarDia,
     async () => {
-      const seguro = await confirmar(
-        textos.detalle.confirmarCancelacion(tramo.funcionario, horas),
-        textos.detalle.siCancelar,
-      );
+      const seguro = await confirmar(textos.detalle.confirmarCancelacion(tramo.funcionario, horas), textos.detalle.siCancelar);
       if (!seguro) return;
-      let yaCanceladas = 0;
-      for (const reserva of tramo.reservas) {
-        try {
-          await api.cancelarReserva(reserva.id);
-        } catch (error) {
-          const e = error as ErrorUi;
-          if (e.codigo !== "no_encontrado") {
-            dialogo.mostrarError(e.mensaje);
-            alCambiar();
-            return;
-          }
-          yaCanceladas += 1;
-        }
-      }
-      if (yaCanceladas === tramo.reservas.length) {
-        mostrarAviso(textos.detalle.yaCancelada);
-      } else {
-        mostrarAviso(textos.detalle.cancelada, "exito");
-      }
-      dialogo.cerrar();
+      if (await cancelarTramo(tramo, dialogo.mostrarError)) dialogo.cerrar();
       alCambiar();
     },
     "peligro",
   );
-  dialogo.pie.prepend(cancelar);
+  dialogo.pie.prepend(cancelarDia);
+
+  if (grupo !== null) {
+    const cancelarSerie = boton(
+      textos.detalle.cancelarSiguientes,
+      async () => {
+        const seguro = await confirmar(
+          textos.detalle.confirmarCancelacionSerie(tramo.funcionario, fechaCorta(fecha)),
+          textos.detalle.siCancelar,
+        );
+        if (!seguro) return;
+        try {
+          const { canceladas } = await api.cancelarGrupo(grupo, fecha);
+          mostrarAviso(textos.detalle.serieCancelada(canceladas), "exito");
+          dialogo.cerrar();
+        } catch (error) {
+          const e = error as ErrorUi;
+          if (e.codigo !== "no_encontrado") {
+            dialogo.mostrarError(e.mensaje);
+            return;
+          }
+          mostrarAviso(textos.detalle.yaCancelada);
+          dialogo.cerrar();
+        }
+        alCambiar();
+      },
+      "peligro",
+    );
+    dialogo.pie.prepend(cancelarSerie);
+  }
 }
 
 // ─── Configuración de boxes ────────────────────────────────────────────────

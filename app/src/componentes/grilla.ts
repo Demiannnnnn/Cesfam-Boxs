@@ -1,8 +1,8 @@
 /**
  * Grilla del día (RF-01): boxes activos en filas y bloques en columnas, separados
  * en mañana y tarde como la planilla del CESFAM. Los bloques seguidos de una misma
- * reserva se dibujan como una sola barra. Se reconstruye completa desde el estado
- * en cada render.
+ * reserva se dibujan como una sola barra. Arrastrar sobre celdas libres de un box
+ * abre la reserva con ese rango. Se reconstruye completa desde el estado en cada render.
  */
 import { el } from "../dom";
 import { bloquesTerminados, hoy } from "../fechas";
@@ -12,7 +12,8 @@ import { agruparEnTramos, type Tramo } from "../tramos";
 import type { BoxAtencion, Horario } from "../tipos";
 
 export interface AccionesGrilla {
-  alElegirLibre: (box: BoxAtencion, bloque: number) => void;
+  /** `hasta` es `null` en un clic simple (el modal propone el rango). */
+  alElegirLibre: (box: BoxAtencion, desde: number, hasta: number | null) => void;
   alElegirOcupada: (tramo: Tramo) => void;
 }
 
@@ -172,10 +173,62 @@ function celdaLibre(box: BoxAtencion, bloque: number, contexto: Contexto): HTMLT
       "aria-label": textos.grilla.reservarEn(box.nombre, etiquetaBloque(bloque)),
       "data-texto": "+",
     },
-    alHacerClic: () => contexto.acciones.alElegirLibre(box, bloque),
+    alHacerClic: () => contexto.acciones.alElegirLibre(box, bloque, null),
   });
+  boton.dataset["bloque"] = String(bloque);
+  boton.addEventListener("pointerdown", (evento) => {
+    if (evento.button === 0 && !boton.disabled) iniciarArrastre(box, bloque, boton, contexto.acciones);
+  });
+  boton.addEventListener("pointerenter", () => extenderArrastre(box, bloque));
   boton.disabled = contexto.deshabilitada;
   const celda = td(bloque, 1, contexto);
   celda.append(boton);
   return celda;
+}
+
+// ─── Arrastre para elegir un rango ─────────────────────────────────────────
+
+interface Arrastre {
+  box: BoxAtencion;
+  inicio: number;
+  fin: number;
+  fila: HTMLElement;
+  acciones: AccionesGrilla;
+}
+
+let arrastre: Arrastre | null = null;
+
+function iniciarArrastre(box: BoxAtencion, bloque: number, boton: HTMLElement, acciones: AccionesGrilla): void {
+  const fila = boton.closest("tr");
+  if (!fila) return;
+  arrastre = { box, inicio: bloque, fin: bloque, fila, acciones };
+  document.addEventListener("pointerup", terminarArrastre, { once: true });
+}
+
+/** Solo se extiende sobre celdas libres contiguas del mismo box. */
+function extenderArrastre(box: BoxAtencion, bloque: number): void {
+  if (!arrastre || arrastre.box.id !== box.id) return;
+  const [a, b] = [Math.min(arrastre.inicio, bloque), Math.max(arrastre.inicio, bloque)];
+  const libres = new Set(
+    [...arrastre.fila.querySelectorAll<HTMLElement>(".celda--libre")].map((c) => Number(c.dataset["bloque"])),
+  );
+  for (let i = a; i <= b; i++) if (!libres.has(i)) return;
+  arrastre.fin = bloque;
+  pintarSeleccion(arrastre.fila, a, b);
+}
+
+function pintarSeleccion(fila: HTMLElement, a: number, b: number): void {
+  for (const celda of fila.querySelectorAll<HTMLElement>(".celda--libre")) {
+    const bloque = Number(celda.dataset["bloque"]);
+    celda.classList.toggle("celda--seleccionada", bloque >= a && bloque <= b);
+  }
+}
+
+function terminarArrastre(): void {
+  const actual = arrastre;
+  arrastre = null;
+  if (!actual || actual.inicio === actual.fin) return; // clic simple: lo maneja el evento click
+  pintarSeleccion(actual.fila, -1, -1);
+  const [a, b] = [Math.min(actual.inicio, actual.fin), Math.max(actual.inicio, actual.fin)];
+  actual.acciones.alElegirLibre(actual.box, a, b);
 }

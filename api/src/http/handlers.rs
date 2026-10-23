@@ -4,7 +4,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use gestion_box_shared::{CambiosBox, EstadoSalud, NuevaReserva, NuevoBox};
+use gestion_box_shared::{CambiosBox, EstadoSalud, Fecha, NuevaReserva, NuevoBox, NuevoLote};
 use serde::Deserialize;
 
 use super::extractores::{JsonApi, PathApi, QueryApi};
@@ -88,6 +88,38 @@ pub async fn crear_reserva(
         .con_db(move |conn| servicio::crear_reserva(conn, &nueva, ahora))
         .await?;
     Ok((StatusCode::CREATED, Json(creada)))
+}
+
+/// `POST /reservas/lote`: rango de bloques en una o varias fechas (RF-03, RF-05).
+pub async fn crear_lote(
+    State(estado): State<AppState>,
+    JsonApi(lote): JsonApi<NuevoLote>,
+) -> Resultado<impl IntoResponse> {
+    let ahora = chrono::Local::now().naive_local();
+    let resultado = estado
+        .con_db(move |conn| servicio::crear_lote(conn, &lote, ahora))
+        .await?;
+    Ok((StatusCode::CREATED, Json(resultado)))
+}
+
+/// Parámetros de `DELETE /reservas/grupo/{grupo}`.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConsultaCancelarGrupo {
+    /// Primera fecha a cancelar; las anteriores del grupo se conservan.
+    desde: Fecha,
+}
+
+/// `DELETE /reservas/grupo/{grupo}?desde=` (RF-04).
+pub async fn cancelar_grupo(
+    State(estado): State<AppState>,
+    PathApi(grupo): PathApi<i64>,
+    QueryApi(consulta): QueryApi<ConsultaCancelarGrupo>,
+) -> Resultado<impl IntoResponse> {
+    let resultado = estado
+        .con_db(move |conn| servicio::cancelar_grupo(conn, grupo, consulta.desde))
+        .await?;
+    Ok(Json(resultado))
 }
 
 /// `DELETE /reservas/{id}` (RF-04).

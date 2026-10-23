@@ -59,3 +59,12 @@ columnas, corte mañana/tarde (`HORA_INICIO_TARDE`, pendiente T-0.1) y bloques c
 igual funcionario y motivo agrupados en una barra (`app/src/tramos.ts`). El modelo no cambia:
 sigue una fila por bloque y el `UNIQUE` (ADR-003). → Cancelar desde la barra cancela cada
 bloque del tramo.
+
+## ADR-015 · 2026-10-23 · aceptada — Lotes de reservas con `grupo`
+La planilla asigna un box por medio día y repite el patrón cada semana; reservar bloque por
+bloque obligaba a decenas de clics. → `POST /reservas/lote` crea un rango de bloques en varias
+fechas dentro de una transacción (todo o nada, u `omitir_ocupados`), y una columna nullable
+`grupo` (migración v2) une lo creado junto. `DELETE /reservas/grupo/{grupo}?desde=` cancela
+"este día y los siguientes". → Se mantiene una fila por bloque y el `UNIQUE` de ADR-003; no hay
+"consultar y luego insertar". La app usa siempre el lote; `POST /reservas` queda por
+compatibilidad.

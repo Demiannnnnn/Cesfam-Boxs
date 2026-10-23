@@ -6,7 +6,8 @@ use std::sync::Mutex;
 
 use gestion_box_shared::horario::Horario;
 use gestion_box_shared::{
-    BoxAtencion, CambiosBox, EstadoSalud, Fecha, NuevaReserva, NuevoBox, Reserva,
+    BoxAtencion, CambiosBox, EstadoSalud, Fecha, NuevaReserva, NuevoBox, NuevoLote, Reserva,
+    ResultadoCancelacion, ResultadoLote,
 };
 use serde::Serialize;
 use tauri::State;
@@ -237,6 +238,40 @@ pub async fn crear_reserva(
         config.ultimo_funcionario = Some(reserva.funcionario.clone());
     });
     Ok(reserva)
+}
+
+/// Crea un rango de bloques en una o varias fechas (serie semanal) y recuerda el
+/// nombre del funcionario en este PC.
+#[tauri::command]
+pub async fn crear_reservas(
+    estado: State<'_, EstadoApp>,
+    lote: NuevoLote,
+) -> Resultado<ResultadoLote> {
+    let cliente = estado.cliente()?;
+    let resultado = cliente
+        .crear_lote(&lote)
+        .await
+        .map_err(|e| estado.error(e))?;
+    if let Some(primera) = resultado.creadas.first() {
+        let funcionario = primera.funcionario.clone();
+        estado.modificar_config(|config| config.ultimo_funcionario = Some(funcionario));
+    }
+    Ok(resultado)
+}
+
+/// Cancela las reservas de un grupo desde `desde` (este día y los siguientes de la serie).
+#[tauri::command]
+pub async fn cancelar_grupo(
+    estado: State<'_, EstadoApp>,
+    grupo: i64,
+    desde: String,
+) -> Resultado<ResultadoCancelacion> {
+    let desde = parsear_fecha(&desde)?;
+    let cliente = estado.cliente()?;
+    cliente
+        .cancelar_grupo(grupo, desde)
+        .await
+        .map_err(|e| estado.error(e))
 }
 
 #[tauri::command]

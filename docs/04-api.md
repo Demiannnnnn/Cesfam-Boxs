@@ -77,7 +77,7 @@ Una de dos formas:
 200 [
   { "id": 15, "box_id": 1, "fecha": "2026-10-01", "bloque": 4,
     "funcionario": "María Pérez", "motivo": "Control sano",
-    "creada_en": "2026-09-30T16:12:03" }
+    "creada_en": "2026-09-30T16:12:03", "grupo": null }
 ]
 ```
 
@@ -95,6 +95,35 @@ Una de dos formas:
 
 Errores: `400 datos_invalidos`, `404 no_encontrado` (box), `422 box_inactivo`,
 **`409 bloque_ocupado` → "Ese bloque acaba de ser tomado"**.
+
+### `POST /reservas/lote` — rango de bloques y series semanales (RF-03, RF-05)
+
+Crea los bloques `desde..=hasta` de un box en cada una de las `fechas` (máx. 46), en **una
+sola transacción**. Todas las reservas creadas comparten `grupo` (el id de la primera), para
+poder cancelar la serie de una vez. La exclusividad sigue en manos del `UNIQUE` (ADR-003).
+
+```json
+// petición: toda la mañana, tres lunes seguidos
+{ "box_id": 17, "fechas": ["2026-10-05", "2026-10-12", "2026-10-19"],
+  "desde": 0, "hasta": 11, "funcionario": "E.U. Olivia", "motivo": null,
+  "omitir_ocupados": false }
+// 201
+{ "creadas": [ { "id": 40, "grupo": 40, "...": "..." } ], "omitidos": [] }
+```
+
+- `omitir_ocupados: false` (por defecto): si un bloque ya está tomado **no se crea nada** →
+  `409 bloque_ocupado`.
+- `omitir_ocupados: true`: se crean los libres y los ocupados vuelven en
+  `omitidos: [{ "fecha": "2026-10-12", "bloque": 3 }]`. Si no quedó ninguno libre → `409`.
+
+Errores: `400 datos_invalidos` (`desde > hasta`, sin fechas o más de 46), `404` (box),
+`422 box_inactivo`, `409 bloque_ocupado`.
+
+### `DELETE /reservas/grupo/{grupo}?desde=AAAA-MM-DD` — cancelar una serie (RF-04)
+
+Elimina las reservas del grupo con fecha `>= desde` ("este día y los siguientes"); las
+anteriores se conservan. `200 { "canceladas": 4 }`. `404 no_encontrado` si no quedaba
+ninguna. `desde` es obligatorio.
 
 ### `DELETE /reservas/{id}` — cancelar (RF-04)
 
@@ -118,10 +147,12 @@ CREATE TABLE IF NOT EXISTS reserva (
     funcionario TEXT    NOT NULL,
     motivo      TEXT,
     creada_en   TEXT    NOT NULL,
+    grupo       INTEGER,                                -- v2: rango o serie (ADR-015)
     UNIQUE (box_id, fecha, bloque)                      -- RF-05
 );
 
 CREATE INDEX IF NOT EXISTS idx_reserva_fecha ON reserva (fecha);
+CREATE INDEX IF NOT EXISTS idx_reserva_grupo ON reserva (grupo);   -- v2
 ```
 
 `PRAGMA`s al abrir: `foreign_keys = ON`, `journal_mode = WAL`, `busy_timeout = 5000`.

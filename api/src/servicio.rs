@@ -4,9 +4,14 @@
 //! se ejecutan. Aquí se normalizan textos y se validan reglas que el esquema no expresa.
 
 use chrono::NaiveDateTime;
-use gestion_box_shared::{BoxAtencion, CambiosBox, Fecha, NuevaReserva, NuevoBox, Reserva};
+use gestion_box_shared::{
+    BloqueOmitido, BoxAtencion, CambiosBox, Fecha, NuevaReserva, NuevoBox, NuevoLote, Reserva,
+    ResultadoCancelacion, ResultadoLote,
+};
 use rusqlite::Connection;
 use serde::Deserialize;
+
+use gestion_box_shared::Bloque;
 
 use crate::repositorio::reservas::ReservaValida;
 use crate::repositorio::{boxes, reservas, ErrorRepositorio};
@@ -19,6 +24,8 @@ pub const MAX_FUNCIONARIO: usize = 80;
 pub const MAX_MOTIVO: usize = 200;
 /// Máximo de días que abarca una consulta por rango (exportación).
 pub const MAX_DIAS_RANGO: i64 = 366;
+/// Máximo de fechas en un lote: alcanza para todos los días hábiles de dos meses.
+pub const MAX_FECHAS_LOTE: usize = 46;
 
 /// Entidad a la que se refiere un "no encontrado", para un mensaje claro.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -185,12 +192,7 @@ pub fn crear_reserva(
 ) -> Result<Reserva, ErrorServicio> {
     let funcionario = texto_obligatorio(&nueva.funcionario, "funcionario", MAX_FUNCIONARIO)?;
     let motivo = texto_opcional(nueva.motivo.as_deref(), "motivo", MAX_MOTIVO)?;
-
-    let box_destino = boxes::obtener(conn, nueva.box_id)
-        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Box))?;
-    if !box_destino.activo {
-        return Err(ErrorServicio::BoxInactivo);
-    }
+    exigir_box_activo(conn, nueva.box_id)?;
 
     let valida = ReservaValida {
         box_id: nueva.box_id,
@@ -198,30 +200,152 @@ pub fn crear_reserva(
         bloque: nueva.bloque,
         funcionario,
         motivo,
-        creada_en: ahora.format("%Y-%m-%dT%H:%M:%S").to_string(),
+        creada_en: marca_de_tiempo(ahora),
+        grupo: None,
     };
-    match reservas::crear(conn, &valida) {
-        Ok(reserva) => {
-            tracing::info!(
-                id = reserva.id,
-                box_id = reserva.box_id,
-                fecha = %reserva.fecha,
-                bloque = reserva.bloque.valor(),
-                "reserva creada"
-            );
-            Ok(reserva)
+    let reserva = insertar(conn, &valida)?;
+    tracing::info!(
+        id = reserva.id,
+        box_id = reserva.box_id,
+        fecha = %reserva.fecha,
+        bloque = reserva.bloque.valor(),
+        "reserva creada"
+    );
+    Ok(reserva)
+}
+
+/// Crea en una sola transacción los bloques `desde..=hasta` del box en cada fecha
+/// del lote, todos con el mismo grupo (el id de la primera reserva creada).
+///
+/// Con `omitir_ocupados = false` es todo o nada: si un bloque está tomado no se crea
+/// ninguno. Con `true` se crean los libres y se devuelven los ocupados en `omitidos`.
+/// La exclusividad sigue en manos del `UNIQUE` (ADR-003): nunca se consulta antes.
+///
+/// # Errores
+/// - [`ErrorServicio::BloqueOcupado`] si hay un bloque tomado (todo o nada) o si no
+///   quedó ningún bloque libre.
+/// - [`ErrorServicio::BoxInactivo`], [`ErrorServicio::NoEncontrado`], [`ErrorServicio::DatosInvalidos`].
+///
+/// Cubre RF-03 y RF-05.
+pub fn crear_lote(
+    conn: &Connection,
+    lote: &NuevoLote,
+    ahora: NaiveDateTime,
+) -> Result<ResultadoLote, ErrorServicio> {
+    let funcionario = texto_obligatorio(&lote.funcionario, "funcionario", MAX_FUNCIONARIO)?;
+    let motivo = texto_opcional(lote.motivo.as_deref(), "motivo", MAX_MOTIVO)?;
+    if lote.desde > lote.hasta {
+        return Err(ErrorServicio::DatosInvalidos(
+            "El bloque \"desde\" debe ser anterior o igual a \"hasta\"".into(),
+        ));
+    }
+    let mut fechas = lote.fechas.clone();
+    fechas.sort();
+    fechas.dedup();
+    if fechas.is_empty() || fechas.len() > MAX_FECHAS_LOTE {
+        return Err(ErrorServicio::DatosInvalidos(format!(
+            "Indica entre 1 y {MAX_FECHAS_LOTE} fechas"
+        )));
+    }
+    exigir_box_activo(conn, lote.box_id)?;
+
+    // `unchecked_transaction` porque la conexión llega como `&Connection`; el `Mutex`
+    // de `AppState` ya garantiza que nadie más la usa mientras dura la transacción.
+    let tx = conn.unchecked_transaction()?;
+    let creada_en = marca_de_tiempo(ahora);
+    let mut creadas: Vec<Reserva> = Vec::new();
+    let mut omitidos = Vec::new();
+    for &fecha in &fechas {
+        for valor in lote.desde.valor()..=lote.hasta.valor() {
+            let bloque =
+                Bloque::new(valor).map_err(|e| ErrorServicio::DatosInvalidos(e.to_string()))?;
+            let valida = ReservaValida {
+                box_id: lote.box_id,
+                fecha,
+                bloque,
+                funcionario: funcionario.clone(),
+                motivo: motivo.clone(),
+                creada_en: creada_en.clone(),
+                grupo: creadas.first().map(|r| r.id),
+            };
+            match insertar(&tx, &valida) {
+                Ok(reserva) => creadas.push(reserva),
+                Err(ErrorServicio::BloqueOcupado) if lote.omitir_ocupados => {
+                    omitidos.push(BloqueOmitido { fecha, bloque });
+                }
+                // Al salir sin `commit` la transacción se revierte: no queda nada a medias.
+                Err(error) => return Err(error),
+            }
         }
-        Err(ErrorRepositorio::BloqueOcupado) => {
+    }
+    let Some(primera) = creadas.first_mut() else {
+        return Err(ErrorServicio::BloqueOcupado);
+    };
+    let grupo = primera.id;
+    reservas::fijar_grupo(&tx, grupo, grupo)
+        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Reserva))?;
+    primera.grupo = Some(grupo);
+    tx.commit()?;
+
+    tracing::info!(
+        grupo,
+        box_id = lote.box_id,
+        creadas = creadas.len(),
+        omitidos = omitidos.len(),
+        "lote de reservas creado"
+    );
+    Ok(ResultadoLote { creadas, omitidos })
+}
+
+fn marca_de_tiempo(ahora: NaiveDateTime) -> String {
+    ahora.format("%Y-%m-%dT%H:%M:%S").to_string()
+}
+
+fn exigir_box_activo(conn: &Connection, box_id: i64) -> Result<(), ErrorServicio> {
+    let box_destino = boxes::obtener(conn, box_id)
+        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Box))?;
+    if box_destino.activo {
+        Ok(())
+    } else {
+        Err(ErrorServicio::BoxInactivo)
+    }
+}
+
+/// Inserta y registra el rechazo por bloque ocupado (RF-05).
+fn insertar(conn: &Connection, valida: &ReservaValida) -> Result<Reserva, ErrorServicio> {
+    reservas::crear(conn, valida).map_err(|error| match error {
+        ErrorRepositorio::BloqueOcupado => {
             tracing::warn!(
                 box_id = valida.box_id,
                 fecha = %valida.fecha,
                 bloque = valida.bloque.valor(),
                 "reserva rechazada: bloque ocupado"
             );
-            Err(ErrorServicio::BloqueOcupado)
+            ErrorServicio::BloqueOcupado
         }
-        Err(e) => Err(ErrorServicio::desde_repositorio(e, Entidad::Reserva)),
+        otro => ErrorServicio::desde_repositorio(otro, Entidad::Reserva),
+    })
+}
+
+/// Cancela las reservas de un grupo desde `desde` (inclusive), p. ej. "este día y
+/// las semanas siguientes" de una serie.
+///
+/// # Errores
+/// [`ErrorServicio::NoEncontrado`] si no quedaba ninguna (otro PC ya las canceló).
+///
+/// Cubre RF-04.
+pub fn cancelar_grupo(
+    conn: &Connection,
+    grupo: i64,
+    desde: Fecha,
+) -> Result<ResultadoCancelacion, ErrorServicio> {
+    let canceladas = reservas::eliminar_grupo(conn, grupo, desde)
+        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Reserva))?;
+    if canceladas == 0 {
+        return Err(ErrorServicio::NoEncontrado(Entidad::Reserva));
     }
+    tracing::info!(grupo, %desde, canceladas, "grupo de reservas cancelado");
+    Ok(ResultadoCancelacion { canceladas })
 }
 
 /// Cancela (elimina) una reserva (RF-04).
@@ -236,7 +360,6 @@ pub fn cancelar_reserva(conn: &Connection, id: i64) -> Result<(), ErrorServicio>
 mod tests {
     use super::*;
     use crate::db;
-    use gestion_box_shared::Bloque;
 
     fn ahora() -> NaiveDateTime {
         "2026-09-30T10:00:00".parse().unwrap()
@@ -315,6 +438,123 @@ mod tests {
         let error = crear_reserva(&conn, &nueva(9, "Ana", None), ahora()).unwrap_err();
 
         assert!(matches!(error, ErrorServicio::NoEncontrado(Entidad::Box)));
+    }
+
+    fn lote(fechas: &[&str], desde: u8, hasta: u8, omitir: bool) -> NuevoLote {
+        NuevoLote {
+            box_id: 1,
+            fechas: fechas.iter().map(|f| f.parse().unwrap()).collect(),
+            desde: Bloque::new(desde).unwrap(),
+            hasta: Bloque::new(hasta).unwrap(),
+            funcionario: "Ana".into(),
+            motivo: None,
+            omitir_ocupados: omitir,
+        }
+    }
+
+    fn total(conn: &Connection) -> usize {
+        let consulta = ConsultaReservas {
+            fecha: None,
+            desde: Some("2026-01-01".parse().unwrap()),
+            hasta: Some("2026-12-31".parse().unwrap()),
+        };
+        listar_reservas(conn, &consulta).unwrap().len()
+    }
+
+    #[test]
+    fn lote_crea_cada_bloque_de_cada_fecha_con_un_mismo_grupo() {
+        let conn = con_box();
+
+        let resultado = crear_lote(
+            &conn,
+            &lote(&["2026-10-08", "2026-10-01"], 0, 3, false),
+            ahora(),
+        )
+        .unwrap();
+
+        assert_eq!(resultado.creadas.len(), 8);
+        assert!(resultado.omitidos.is_empty());
+        let grupo = resultado.creadas[0].id;
+        assert!(resultado.creadas.iter().all(|r| r.grupo == Some(grupo)));
+        assert_eq!(
+            resultado.creadas[0].fecha.to_string(),
+            "2026-10-01",
+            "fechas ordenadas"
+        );
+    }
+
+    #[test]
+    fn lote_con_un_bloque_ocupado_no_crea_nada() {
+        let conn = con_box();
+        crear_reserva(&conn, &nueva(1, "Otro", None), ahora()).unwrap(); // bloque 2 del 01
+
+        let error = crear_lote(&conn, &lote(&["2026-10-01"], 0, 3, false), ahora()).unwrap_err();
+
+        assert!(matches!(error, ErrorServicio::BloqueOcupado));
+        assert_eq!(total(&conn), 1, "la transacción se revirtió");
+    }
+
+    #[test]
+    fn lote_omitiendo_ocupados_crea_los_libres_e_informa_el_resto() {
+        let conn = con_box();
+        crear_reserva(&conn, &nueva(1, "Otro", None), ahora()).unwrap();
+
+        let resultado = crear_lote(&conn, &lote(&["2026-10-01"], 0, 3, true), ahora()).unwrap();
+
+        assert_eq!(resultado.creadas.len(), 3);
+        assert_eq!(resultado.omitidos.len(), 1);
+        assert_eq!(resultado.omitidos[0].bloque.valor(), 2);
+    }
+
+    #[test]
+    fn lote_sin_ningun_bloque_libre_es_bloque_ocupado() {
+        let conn = con_box();
+        crear_reserva(&conn, &nueva(1, "Otro", None), ahora()).unwrap();
+
+        let error = crear_lote(&conn, &lote(&["2026-10-01"], 2, 2, true), ahora()).unwrap_err();
+
+        assert!(matches!(error, ErrorServicio::BloqueOcupado));
+    }
+
+    #[test]
+    fn lote_invertido_vacio_o_demasiado_largo_es_invalido() {
+        let conn = con_box();
+        let muchas: Vec<String> = (1..=MAX_FECHAS_LOTE + 1)
+            .map(|d| format!("2026-{:02}-{:02}", 1 + (d - 1) / 28, 1 + (d - 1) % 28))
+            .collect();
+        let muchas: Vec<&str> = muchas.iter().map(String::as_str).collect();
+
+        for invalido in [
+            lote(&["2026-10-01"], 4, 3, false),
+            lote(&[], 0, 0, false),
+            lote(&muchas, 0, 0, false),
+        ] {
+            assert!(matches!(
+                crear_lote(&conn, &invalido, ahora()),
+                Err(ErrorServicio::DatosInvalidos(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn cancelar_grupo_desde_una_fecha_conserva_las_anteriores() {
+        let conn = con_box();
+        let creado = crear_lote(
+            &conn,
+            &lote(&["2026-10-01", "2026-10-08", "2026-10-15"], 0, 1, false),
+            ahora(),
+        )
+        .unwrap();
+        let grupo = creado.creadas[0].id;
+
+        let resultado = cancelar_grupo(&conn, grupo, "2026-10-08".parse().unwrap()).unwrap();
+
+        assert_eq!(resultado.canceladas, 4);
+        assert_eq!(total(&conn), 2);
+        assert!(matches!(
+            cancelar_grupo(&conn, grupo, "2026-10-08".parse().unwrap()),
+            Err(ErrorServicio::NoEncontrado(Entidad::Reserva))
+        ));
     }
 
     #[test]

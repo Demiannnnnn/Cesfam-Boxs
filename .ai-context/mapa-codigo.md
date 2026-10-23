@@ -29,7 +29,9 @@ Dónde vive cada responsabilidad. Actualizar al crear o mover módulos.
 | Exportar CSV | `app/src-tauri/src/exportar.rs` | RF-12 |
 | Grilla | `app/src/componentes/grilla.ts` | RF-01, RF-02 |
 | Agrupar bloques en tramos | `app/src/tramos.ts` | RF-01 |
-| Modales | `app/src/componentes/modales.ts` | RF-03, RF-04, RF-06, RF-09, RF-12 |
+| Modal de reserva (rango, serie) | `app/src/componentes/reservar.ts` | RF-03, RF-05 |
+| Modales (detalle, boxes, conexión, exportar) | `app/src/componentes/modales.ts` | RF-04, RF-06, RF-09, RF-12 |
+| Piezas de formulario | `app/src/componentes/formulario.ts` | — |
 | Diálogo base (pausa refresco) | `app/src/componentes/dialogo.ts` | RF-07 |
 | Aviso temporal | `app/src/componentes/aviso.ts` | RF-05 |
 | Fechas (sin desfase UTC) | `app/src/fechas.ts` | RF-02 |

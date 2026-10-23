@@ -11,10 +11,12 @@ import { mostrarAviso } from "./componentes/aviso";
 import { renderizarConexion } from "./componentes/conexion";
 import { alCerrarDialogos, hayDialogoAbierto } from "./componentes/dialogo";
 import { renderizarGrilla } from "./componentes/grilla";
-import { abrirBoxes, abrirConexionManual, abrirDetalle, abrirExportar, abrirReservar } from "./componentes/modales";
+import { abrirBoxes, abrirConexionManual, abrirDetalle, abrirExportar } from "./componentes/modales";
+import { abrirReservar } from "./componentes/reservar";
 import { porId } from "./dom";
 import { estado } from "./estado";
 import { diaHabil, fechaLarga, hoy } from "./fechas";
+import { textos } from "./textos";
 import type { ErrorUi, ResultadoConexion } from "./tipos";
 
 /** Intervalo de refresco automático (RF-07 pide entre 15 y 30 s). */
@@ -35,9 +37,14 @@ function renderizar(): void {
   elementos.selectorFecha.value = estado.fecha;
   elementos.fechaLarga.textContent = fechaLarga(estado.fecha);
   renderizarGrilla(elementos.grilla, {
-    alElegirLibre: (box, bloque) =>
-      abrirReservar(box, bloque, {
-        alReservar: () => void refrescar(),
+    alElegirLibre: (box, desde, hasta) =>
+      abrirReservar(box, desde, hasta, {
+        alReservar: (resultado) => {
+          const dias = new Set(resultado.creadas.map((r) => r.fecha)).size;
+          if (resultado.omitidos.length > 0) mostrarAviso(textos.reserva.parcial(resultado.omitidos.length), "exito");
+          else mostrarAviso(textos.reserva.listo(dias), "exito");
+          void refrescar();
+        },
         alConflicto: (error) => {
           mostrarAviso(error.mensaje);
           void refrescar();

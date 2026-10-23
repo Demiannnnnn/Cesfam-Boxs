@@ -16,14 +16,24 @@ export interface Reserva {
   funcionario: string;
   motivo: string | null;
   creada_en: string;
+  /** Reservas creadas juntas (rango o serie semanal) comparten grupo. */
+  grupo: number | null;
 }
 
-export interface NuevaReserva {
+/** Cuerpo de `crear_reservas`: bloques `desde..=hasta` del box en cada fecha. */
+export interface NuevoLote {
   box_id: number;
-  fecha: string;
-  bloque: number;
+  fechas: string[];
+  desde: number;
+  hasta: number;
   funcionario: string;
   motivo: string | null;
+  omitir_ocupados: boolean;
+}
+
+export interface ResultadoLote {
+  creadas: Reserva[];
+  omitidos: Array<{ fecha: string; bloque: number }>;
 }
 
 export interface CambiosBox {

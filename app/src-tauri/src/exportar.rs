@@ -66,6 +66,7 @@ mod tests {
             funcionario: funcionario.into(),
             motivo: motivo.map(Into::into),
             creada_en: "2026-09-30T10:00:00".into(),
+            grupo: None,
         }
     }
 

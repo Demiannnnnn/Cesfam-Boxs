@@ -25,6 +25,10 @@ pub struct Reserva {
     pub motivo: Option<String>,
     /// Fecha y hora local de creación, `AAAA-MM-DDTHH:MM:SS`.
     pub creada_en: String,
+    /// Reservas creadas juntas (un rango de bloques o una serie semanal) comparten
+    /// grupo, para cancelarlas de una vez. `None` en reservas sueltas.
+    #[serde(default)]
+    pub grupo: Option<i64>,
 }
 
 /// Cuerpo de `POST /boxes`.
@@ -56,6 +60,44 @@ pub struct NuevaReserva {
     pub motivo: Option<String>,
 }
 
+/// Cuerpo de `POST /reservas/lote`: los bloques `desde..=hasta` de un box en cada
+/// una de las `fechas` (un rango del día, o una serie semanal).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NuevoLote {
+    pub box_id: i64,
+    pub fechas: Vec<Fecha>,
+    pub desde: Bloque,
+    pub hasta: Bloque,
+    pub funcionario: String,
+    #[serde(default)]
+    pub motivo: Option<String>,
+    /// `false` (por defecto): si un bloque está ocupado no se crea nada (409).
+    /// `true`: se crean los libres y se informan los ocupados en `omitidos`.
+    #[serde(default)]
+    pub omitir_ocupados: bool,
+}
+
+/// Bloque que no se reservó porque ya estaba ocupado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BloqueOmitido {
+    pub fecha: Fecha,
+    pub bloque: Bloque,
+}
+
+/// Respuesta de `POST /reservas/lote`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResultadoLote {
+    pub creadas: Vec<Reserva>,
+    pub omitidos: Vec<BloqueOmitido>,
+}
+
+/// Respuesta de `DELETE /reservas/grupo/{grupo}`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResultadoCancelacion {
+    pub canceladas: usize,
+}
+
 /// Respuesta de `GET /health`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EstadoSalud {
@@ -79,6 +121,7 @@ mod tests {
             funcionario: "María Pérez".into(),
             motivo: None,
             creada_en: "2026-09-30T16:12:03".into(),
+            grupo: None,
         };
 
         let json = serde_json::to_string(&reserva).unwrap();
@@ -103,6 +146,24 @@ mod tests {
         let nueva: NuevaReserva = serde_json::from_str(json).unwrap();
 
         assert_eq!(nueva.motivo, None);
+    }
+
+    #[test]
+    fn reserva_sin_grupo_en_el_json_se_acepta() {
+        let json = r#"{"id":1,"box_id":1,"fecha":"2026-10-01","bloque":0,"funcionario":"x","motivo":null,"creada_en":"2026-10-01T08:00:00"}"#;
+
+        assert_eq!(serde_json::from_str::<Reserva>(json).unwrap().grupo, None);
+    }
+
+    #[test]
+    fn lote_sin_omitir_ocupados_es_todo_o_nada() {
+        let json = r#"{"box_id":1,"fechas":["2026-10-01"],"desde":0,"hasta":11,"funcionario":"x"}"#;
+
+        assert!(
+            !serde_json::from_str::<NuevoLote>(json)
+                .unwrap()
+                .omitir_ocupados
+        );
     }
 
     #[test]

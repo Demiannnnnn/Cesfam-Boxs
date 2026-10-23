@@ -10,10 +10,11 @@ import type {
   CambiosBox,
   ErrorUi,
   Horario,
-  NuevaReserva,
+  NuevoLote,
   Preferencias,
   Reserva,
   ResultadoConexion,
+  ResultadoLote,
 } from "./tipos";
 
 /** Convierte cualquier rechazo de `invoke` en un `ErrorUi`. */
@@ -51,8 +52,10 @@ export const api = {
   actualizarBox: (id: number, cambios: CambiosBox) =>
     llamar<BoxAtencion>("actualizar_box", { id, cambios }),
   listarReservas: (fecha: string) => llamar<Reserva[]>("listar_reservas", { fecha }),
-  crearReserva: (nueva: NuevaReserva) => llamar<Reserva>("crear_reserva", { nueva }),
+  crearReservas: (lote: NuevoLote) => llamar<ResultadoLote>("crear_reservas", { lote }),
   cancelarReserva: (id: number) => llamar<void>("cancelar_reserva", { id }),
+  cancelarGrupo: (grupo: number, desde: string) =>
+    llamar<{ canceladas: number }>("cancelar_grupo", { grupo, desde }),
   exportarCsv: (desde: string, hasta: string, ruta: string) =>
     llamar<number>("exportar_csv", { desde, hasta, ruta }),
 };

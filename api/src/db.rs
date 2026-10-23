@@ -30,6 +30,9 @@ const MIGRACIONES: &[&str] = &[
         UNIQUE (box_id, fecha, bloque)
     );
     CREATE INDEX IF NOT EXISTS idx_reserva_fecha ON reserva (fecha);",
+    // v2 — grupo: reservas creadas juntas (rango o serie semanal), ADR-015.
+    "ALTER TABLE reserva ADD COLUMN grupo INTEGER;
+    CREATE INDEX IF NOT EXISTS idx_reserva_grupo ON reserva (grupo);",
 ];
 
 /// Abre (o crea) la base en `ruta`, aplica los PRAGMAs y las migraciones pendientes.
@@ -118,6 +121,23 @@ mod tests {
             .query_row("PRAGMA user_version", [], |f| f.get(0))
             .unwrap();
         assert_eq!(usize::try_from(version).unwrap(), version_esquema());
+    }
+
+    #[test]
+    fn migrar_desde_v1_conserva_reservas_con_grupo_nulo() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(MIGRACIONES[0]).unwrap();
+        conn.pragma_update(None, "user_version", 1).unwrap();
+        conn.execute("INSERT INTO box (nombre) VALUES ('Box 1')", [])
+            .unwrap();
+        insertar_reserva(&conn, 1, 0).unwrap();
+
+        migrar(&mut conn).unwrap();
+
+        let grupo: Option<i64> = conn
+            .query_row("SELECT grupo FROM reserva", [], |f| f.get(0))
+            .unwrap();
+        assert_eq!(grupo, None);
     }
 
     #[test]

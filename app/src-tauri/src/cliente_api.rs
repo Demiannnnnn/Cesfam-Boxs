@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use gestion_box_shared::descubrimiento::PUERTO_HTTP_POR_DEFECTO;
 use gestion_box_shared::{
-    BoxAtencion, CambiosBox, ErrorRespuesta, EstadoSalud, Fecha, NuevaReserva, NuevoBox, Reserva,
+    BoxAtencion, CambiosBox, ErrorRespuesta, EstadoSalud, Fecha, NuevaReserva, NuevoBox, NuevoLote,
+    Reserva, ResultadoCancelacion, ResultadoLote,
 };
 use reqwest::{Client, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
@@ -215,6 +216,24 @@ impl ClienteApi {
     /// `POST /reservas` (RF-03, RF-05).
     pub async fn crear_reserva(&self, nueva: &NuevaReserva) -> Result<Reserva, ErrorCliente> {
         Self::json(self.http.post(self.url("/reservas")).json(nueva)).await
+    }
+
+    /// `POST /reservas/lote` (RF-03, RF-05).
+    pub async fn crear_lote(&self, lote: &NuevoLote) -> Result<ResultadoLote, ErrorCliente> {
+        Self::json(self.http.post(self.url("/reservas/lote")).json(lote)).await
+    }
+
+    /// `DELETE /reservas/grupo/{grupo}?desde=` (RF-04).
+    pub async fn cancelar_grupo(
+        &self,
+        grupo: i64,
+        desde: Fecha,
+    ) -> Result<ResultadoCancelacion, ErrorCliente> {
+        let peticion = self
+            .http
+            .delete(self.url(&format!("/reservas/grupo/{grupo}")))
+            .query(&[("desde", desde.to_string())]);
+        Self::json(peticion).await
     }
 
     /// `DELETE /reservas/{id}` (RF-04).

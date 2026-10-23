@@ -7,15 +7,17 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use super::{es_violacion_unique, ErrorRepositorio};
 
 const SQL_LISTAR_RANGO: &str =
-    "SELECT id, box_id, fecha, bloque, funcionario, motivo, creada_en FROM reserva
+    "SELECT id, box_id, fecha, bloque, funcionario, motivo, creada_en, grupo FROM reserva
      WHERE fecha BETWEEN ?1 AND ?2
      ORDER BY fecha, bloque, box_id";
-const SQL_OBTENER: &str =
-    "SELECT id, box_id, fecha, bloque, funcionario, motivo, creada_en FROM reserva WHERE id = ?1";
+const SQL_OBTENER: &str = "SELECT id, box_id, fecha, bloque, funcionario, motivo, creada_en, grupo
+     FROM reserva WHERE id = ?1";
 const SQL_CREAR: &str =
-    "INSERT INTO reserva (box_id, fecha, bloque, funcionario, motivo, creada_en)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
+    "INSERT INTO reserva (box_id, fecha, bloque, funcionario, motivo, creada_en, grupo)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
+const SQL_FIJAR_GRUPO: &str = "UPDATE reserva SET grupo = ?2 WHERE id = ?1";
 const SQL_ELIMINAR: &str = "DELETE FROM reserva WHERE id = ?1";
+const SQL_ELIMINAR_GRUPO: &str = "DELETE FROM reserva WHERE grupo = ?1 AND fecha >= ?2";
 
 /// Datos de una reserva ya validados por la capa de servicio.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +28,7 @@ pub struct ReservaValida {
     pub funcionario: String,
     pub motivo: Option<String>,
     pub creada_en: String,
+    pub grupo: Option<i64>,
 }
 
 fn fila_a_reserva(fila: &Row<'_>) -> rusqlite::Result<Reserva> {
@@ -43,6 +46,7 @@ fn fila_a_reserva(fila: &Row<'_>) -> rusqlite::Result<Reserva> {
         funcionario: fila.get(4)?,
         motivo: fila.get(5)?,
         creada_en: fila.get(6)?,
+        grupo: fila.get(7)?,
     })
 }
 
@@ -88,6 +92,7 @@ pub fn crear(conn: &Connection, nueva: &ReservaValida) -> Result<Reserva, ErrorR
             nueva.funcionario,
             nueva.motivo,
             nueva.creada_en,
+            nueva.grupo,
         ])
         .map_err(|error| {
             if es_violacion_unique(&error) {
@@ -97,6 +102,25 @@ pub fn crear(conn: &Connection, nueva: &ReservaValida) -> Result<Reserva, ErrorR
             }
         })?;
     obtener(conn, conn.last_insert_rowid())
+}
+
+/// Asigna `grupo` a una reserva ya creada (la primera de un lote da su id al grupo).
+pub fn fijar_grupo(conn: &Connection, id: i64, grupo: i64) -> Result<(), ErrorRepositorio> {
+    conn.prepare_cached(SQL_FIJAR_GRUPO)?
+        .execute(params![id, grupo])?;
+    Ok(())
+}
+
+/// Elimina las reservas de `grupo` con fecha desde `desde` (inclusive).
+/// Devuelve cuántas eliminó (0 si el grupo ya no tenía reservas en ese rango).
+pub fn eliminar_grupo(
+    conn: &Connection,
+    grupo: i64,
+    desde: Fecha,
+) -> Result<usize, ErrorRepositorio> {
+    Ok(conn
+        .prepare_cached(SQL_ELIMINAR_GRUPO)?
+        .execute(params![grupo, desde.to_string()])?)
 }
 
 /// Elimina una reserva (cancelación).
@@ -125,6 +149,7 @@ mod tests {
             funcionario: "Ana".into(),
             motivo: None,
             creada_en: "2026-09-30T10:00:00".into(),
+            grupo: None,
         }
     }
 
@@ -179,6 +204,33 @@ mod tests {
 
         let fechas: Vec<String> = lista.iter().map(|r| r.fecha.to_string()).collect();
         assert_eq!(fechas, ["2026-10-01", "2026-10-31"]);
+    }
+
+    #[test]
+    fn eliminar_grupo_respeta_la_fecha_desde() {
+        let conn = preparar();
+        for fecha in ["2026-10-01", "2026-10-08", "2026-10-15"] {
+            crear(
+                &conn,
+                &ReservaValida {
+                    grupo: Some(7),
+                    ..reserva(1, fecha, 0)
+                },
+            )
+            .unwrap();
+        }
+        crear(&conn, &reserva(2, "2026-10-08", 0)).unwrap();
+
+        let eliminadas = eliminar_grupo(&conn, 7, "2026-10-08".parse().unwrap()).unwrap();
+
+        assert_eq!(eliminadas, 2);
+        let quedan = listar_por_rango(
+            &conn,
+            "2026-10-01".parse().unwrap(),
+            "2026-10-31".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(quedan.len(), 2, "quedan la del 01 del grupo y la suelta");
     }
 
     #[test]

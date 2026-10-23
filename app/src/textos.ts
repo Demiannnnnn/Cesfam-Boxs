@@ -20,12 +20,30 @@ export const textos = {
     titulo: "Reservar box",
     box: "Box",
     fecha: "Fecha",
-    hora: "Hora",
+    horario: "Horario",
+    desde: "Desde",
+    hasta: "Hasta",
+    manana: "Mañana",
+    tarde: "Tarde",
+    diaCompleto: "Día completo",
     funcionario: "Nombre del funcionario",
     motivo: "Motivo (opcional)",
+    repetir: "Repetir cada semana",
+    repetirHasta: "hasta el",
+    resumenDia: (horas: string) => `Se reservará de ${horas}.`,
+    resumenSerie: (horas: string, fechas: string[]) =>
+      `Se reservará de ${horas} los ${fechas.length} días: ${fechas.join(", ")}.`,
+    rangoInvertido: "La hora de término debe ser posterior a la de inicio.",
+    demasiadasFechas: (max: number) => `La serie no puede tener más de ${max} días. Elige una fecha de término más cercana.`,
+    algunosOcupados:
+      "Algunos de esos bloques ya están ocupados, así que no se reservó nada. Puedes reservar solo los libres o cambiar el horario.",
+    soloLibres: "Reservar solo los libres",
     confirmar: "Reservar",
     enviando: "Reservando…",
     funcionarioObligatorio: "Escribe tu nombre para reservar.",
+    listo: (dias: number) => (dias > 1 ? `Reserva creada para ${dias} días.` : "Reserva creada."),
+    parcial: (omitidos: number) =>
+      `Reserva creada. ${omitidos} ${omitidos === 1 ? "bloque ya estaba ocupado" : "bloques ya estaban ocupados"} y se omitieron.`,
   },
   detalle: {
     titulo: "Detalle de la reserva",
@@ -35,6 +53,11 @@ export const textos = {
     sinMotivo: "—",
     creada: "Reservada el",
     cancelar: "Cancelar reserva",
+    cancelarDia: "Cancelar solo este día",
+    cancelarSiguientes: "Cancelar este día y los siguientes",
+    confirmarCancelacionSerie: (nombre: string, fecha: string) =>
+      `¿Cancelar la serie de ${nombre} desde el ${fecha} en adelante? Los días anteriores se conservan.`,
+    serieCancelada: (n: number) => `Se cancelaron ${n} bloques de la serie.`,
     confirmarCancelacion: (nombre: string, horas: string) =>
       `¿Cancelar la reserva de ${nombre} (${horas})?`,
     siCancelar: "Sí, cancelar",
