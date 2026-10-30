@@ -1,15 +1,25 @@
 /**
- * Grilla del día (RF-01): boxes activos en filas y bloques en columnas, separados
- * en mañana y tarde como la planilla del CESFAM. Los bloques seguidos de una misma
- * reserva se dibujan como una sola barra. Arrastrar sobre celdas libres de un box
- * abre la reserva con ese rango. Se reconstruye completa desde el estado en cada render.
+ * Grilla del día (RF-01, RF-14): boxes activos en filas y bloques en columnas,
+ * separados en mañana y tarde como la planilla del CESFAM. Los bloques seguidos
+ * de una misma reserva se dibujan como una sola barra con el color de la etiqueta
+ * del funcionario.
  */
+import { colorTexto } from "../colores";
 import { el } from "../dom";
+import {
+  coincideFiltro,
+  estado,
+  etiquetaBloque,
+  etiquetaDeBox,
+  etiquetaDeFuncionario,
+  etiquetasActivas,
+  rangoHorario,
+} from "../estado";
 import { bloquesTerminados, hoy } from "../fechas";
-import { coincideFiltro, estado, etiquetaBloque, rangoHorario } from "../estado";
 import { textos } from "../textos";
 import { agruparEnTramos, type Tramo } from "../tramos";
 import type { BoxAtencion, Horario } from "../tipos";
+import { chipEtiqueta } from "./formulario";
 
 export interface AccionesGrilla {
   /** `hasta` es `null` en un clic simple (el modal propone el rango). */
@@ -24,6 +34,34 @@ interface Contexto {
   enCurso: number | null;
   deshabilitada: boolean;
   acciones: AccionesGrilla;
+}
+
+/** Leyenda compacta de etiquetas activas sobre la grilla (RF-14). */
+export function renderizarLeyendaEtiquetas(contenedor: HTMLElement): void {
+  const activas = etiquetasActivas();
+  if (activas.length === 0) {
+    contenedor.hidden = true;
+    contenedor.replaceChildren();
+    return;
+  }
+  contenedor.hidden = false;
+  contenedor.replaceChildren(...activas.map((etiq) => chipEtiqueta(etiq, "chip-etiqueta--leyenda")));
+}
+
+/** Encabezado `<th>` de la fila de un box, con franja y chip del color de su etiqueta (RF-14). */
+export function encabezadoBox(box: BoxAtencion): HTMLTableCellElement {
+  const etiqueta = etiquetaDeBox(box);
+  const titulo = etiqueta ? textos.grilla.boxConEtiqueta(box.nombre, etiqueta.nombre) : box.nombre;
+  const th = el(
+    "th",
+    { clase: "grilla__box", atributos: { scope: "row", title: titulo } },
+    el("span", { clase: "grilla__box-nombre", texto: box.nombre }),
+    etiqueta ? chipEtiqueta(etiqueta, "chip-etiqueta--box") : null,
+  );
+  if (etiqueta) {
+    th.style.borderLeft = `5px solid ${etiqueta.color}`;
+  }
+  return th;
 }
 
 export function renderizarGrilla(contenedor: HTMLElement, acciones: AccionesGrilla): void {
@@ -126,12 +164,7 @@ function fila(box: BoxAtencion, horario: Horario, tramos: Map<string, Tramo>, co
       bloque += 1;
     }
   }
-  return el(
-    "tr",
-    { clase: "grilla__fila" },
-    el("th", { clase: "grilla__box", texto: box.nombre, atributos: { scope: "row", title: box.nombre } }),
-    ...celdas,
-  );
+  return el("tr", { clase: "grilla__fila" }, encabezadoBox(box), ...celdas);
 }
 
 function td(desde: number, abarca: number, contexto: Contexto, clasesExtra: string[] = []): HTMLTableCellElement {
@@ -144,8 +177,9 @@ function td(desde: number, abarca: number, contexto: Contexto, clasesExtra: stri
 
 function celdaOcupada(tramo: Tramo, contexto: Contexto): HTMLTableCellElement {
   const horas = rangoHorario(tramo.desde, tramo.hasta);
-  const detalle = [tramo.funcionario, horas, tramo.motivo].filter(Boolean).join(" · ");
-  const coincide = coincideFiltro(tramo.funcionario);
+  const etiqueta = etiquetaDeFuncionario(tramo.funcionario_id);
+  const detalle = [tramo.funcionario, etiqueta?.nombre, horas, tramo.motivo].filter(Boolean).join(" · ");
+  const coincide = coincideFiltro({ funcionario_id: tramo.funcionario_id, nombre: tramo.funcionario });
   const clases = ["celda", "celda--ocupada"];
   if (coincide === true) clases.push("celda--destacada");
   if (coincide === false) clases.push("celda--atenuada");
@@ -159,6 +193,11 @@ function celdaOcupada(tramo: Tramo, contexto: Contexto): HTMLTableCellElement {
     el("span", { clase: "celda__nombre", texto: tramo.funcionario }),
     tramo.motivo ? el("span", { clase: "celda__motivo", texto: tramo.motivo }) : null,
   );
+  if (etiqueta) {
+    boton.style.backgroundColor = etiqueta.color;
+    boton.style.borderColor = etiqueta.color;
+    boton.style.color = colorTexto(etiqueta.color);
+  }
   boton.disabled = contexto.deshabilitada;
   const celda = td(tramo.desde, tramo.hasta - tramo.desde + 1, contexto);
   celda.append(boton);
@@ -231,7 +270,7 @@ function pintarSeleccion(fila: HTMLElement, a: number, b: number): void {
 function terminarArrastre(): void {
   const actual = arrastre;
   arrastre = null;
-  if (!actual || actual.inicio === actual.fin) return; // clic simple: lo maneja el evento click
+  if (!actual || actual.inicio === actual.fin) return;
   pintarSeleccion(actual.fila, -1, -1);
   const [a, b] = [Math.min(actual.inicio, actual.fin), Math.max(actual.inicio, actual.fin)];
   actual.acciones.alElegirLibre(actual.box, a, b);

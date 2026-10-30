@@ -3,20 +3,22 @@
  *
  * - Al iniciar: horario → conectar (guardada → localhost → broadcast) → grilla,
  *   o pantalla de conexión manual si no se encuentra el servidor (RF-09).
- * - Cada 20 s refresca boxes y reservas del día o la semana visible (RF-07); si
- *   falla, marca "Sin conexión" (RF-08) y en el siguiente ciclo intenta redescubrir
- *   el servidor.
+ * - Cada 20 s refresca boxes, etiquetas, funcionarios y reservas del día o la
+ *   semana visible (RF-07, RF-13, RF-14); si falla, marca "Sin conexión" (RF-08) y
+ *   en el siguiente ciclo intenta redescubrir el servidor.
  */
 import { api } from "./api";
 import { mostrarAviso } from "./componentes/aviso";
 import { renderizarConexion } from "./componentes/conexion";
 import { alCerrarDialogos, hayDialogoAbierto } from "./componentes/dialogo";
-import { renderizarGrilla } from "./componentes/grilla";
+import { abrirEtiquetas } from "./componentes/etiquetas";
+import { abrirFuncionarios } from "./componentes/funcionarios";
+import { renderizarGrilla, renderizarLeyendaEtiquetas } from "./componentes/grilla";
 import { abrirBoxes, abrirConexionManual, abrirDetalle, abrirExportar } from "./componentes/modales";
 import { abrirReservar, type AccionesReserva } from "./componentes/reservar";
 import { renderizarSemana } from "./componentes/semana";
 import { el, porId } from "./dom";
-import { estado, type Vista } from "./estado";
+import { estado, funcionariosActivos, type Vista } from "./estado";
 import { diaHabil, diasHabilesDeSemana, fechaLarga, hoy, inicioSemana, sumarDias, tituloSemana } from "./fechas";
 import { textos } from "./textos";
 import type { ErrorUi, Reserva, ResultadoConexion } from "./tipos";
@@ -26,6 +28,7 @@ const INTERVALO_REFRESCO_MS = 20_000;
 
 const elementos = {
   conexion: porId<HTMLDivElement>("conexion"),
+  leyendaEtiquetas: porId<HTMLDivElement>("leyenda-etiquetas"),
   grilla: porId<HTMLElement>("grilla"),
   selectorFecha: porId<HTMLInputElement>("selector-fecha"),
   fechaLarga: porId<HTMLHeadingElement>("fecha-larga"),
@@ -44,7 +47,6 @@ const accionesReserva: AccionesReserva = {
     if (resultado.omitidos.length > 0) mostrarAviso(textos.reserva.parcial(resultado.omitidos.length), "exito");
     else mostrarAviso(textos.reserva.listo(dias), "exito");
     void refrescar();
-    void cargarFuncionarios();
   },
   alConflicto: (error) => {
     mostrarAviso(error.mensaje);
@@ -54,6 +56,10 @@ const accionesReserva: AccionesReserva = {
 
 function renderizar(): void {
   renderizarConexion(elementos.conexion, estado.conexion);
+  renderizarLeyendaEtiquetas(elementos.leyendaEtiquetas);
+  elementos.listaFuncionarios.replaceChildren(
+    ...funcionariosActivos().map((f) => el("option", { atributos: { value: f.nombre } })),
+  );
   elementos.selectorFecha.value = estado.fecha;
   elementos.vistaDia.setAttribute("aria-pressed", String(estado.vista === "dia"));
   elementos.vistaSemana.setAttribute("aria-pressed", String(estado.vista === "semana"));
@@ -80,7 +86,21 @@ function pedirReservas(vista: Vista, fecha: string): Promise<Reserva[]> {
   return api.listarReservasRango(dias[0] ?? fecha, dias[dias.length - 1] ?? fecha);
 }
 
-/** Pide boxes y reservas de lo visible. Nunca lanza. */
+/** Carga etiquetas y funcionarios registrados. No lanza si falla. */
+async function cargarCatalogos(): Promise<void> {
+  try {
+    const [etiquetas, funcionarios] = await Promise.all([
+      api.listarEtiquetas(true),
+      api.listarFuncionarios(true),
+    ]);
+    estado.etiquetas = etiquetas;
+    estado.funcionarios = funcionarios;
+  } catch {
+    // Si falla el catálogo, se conserva el último estado conocido.
+  }
+}
+
+/** Pide boxes, catálogos y reservas de lo visible. Nunca lanza. */
 async function refrescar(): Promise<void> {
   if (refrescando) return;
   refrescando = true;
@@ -89,7 +109,11 @@ async function refrescar(): Promise<void> {
       await reconectarEnSilencio();
     }
     const { vista, fecha } = estado;
-    const [boxes, reservas] = await Promise.all([api.listarBoxes(false), pedirReservas(vista, fecha)]);
+    const [boxes, reservas] = await Promise.all([
+      api.listarBoxes(false),
+      pedirReservas(vista, fecha),
+      cargarCatalogos(),
+    ]);
     // Si el usuario cambió de día o de vista mientras llegaba la respuesta, se descarta.
     if (fecha !== estado.fecha || vista !== estado.vista) return;
     estado.boxes = boxes;
@@ -105,18 +129,6 @@ async function refrescar(): Promise<void> {
   } finally {
     refrescando = false;
     renderizar();
-  }
-}
-
-/** Llena las sugerencias de nombres (modal de reserva y buscador). No es crítico: si falla, se omite. */
-async function cargarFuncionarios(): Promise<void> {
-  try {
-    estado.funcionarios = await api.listarFuncionarios();
-    elementos.listaFuncionarios.replaceChildren(
-      ...estado.funcionarios.map((nombre) => el("option", { atributos: { value: nombre } })),
-    );
-  } catch {
-    // Sin sugerencias se puede escribir igual; el próximo intento las recupera.
   }
 }
 
@@ -163,7 +175,6 @@ function alConectar(resultado: ResultadoConexion): void {
   estado.equipo = resultado.equipo;
   estado.conexion = { tipo: "conectado", equipo: resultado.equipo };
   void refrescar();
-  void cargarFuncionarios();
 }
 
 function enlazarEventos(): void {
@@ -177,6 +188,8 @@ function enlazarEventos(): void {
     estado.filtro = elementos.filtro.value;
     renderizar();
   });
+  porId("btn-funcionarios").addEventListener("click", () => abrirFuncionarios(() => void refrescar()));
+  porId("btn-etiquetas").addEventListener("click", () => abrirEtiquetas(() => void refrescar()));
   porId("btn-boxes").addEventListener("click", () => abrirBoxes(() => void refrescar()));
   porId("btn-exportar").addEventListener("click", () => abrirExportar());
   alCerrarDialogos(() => void refrescar());
@@ -191,7 +204,7 @@ async function iniciar(): Promise<void> {
   try {
     const [horario, preferencias] = await Promise.all([api.horario(), api.preferencias()]);
     estado.horario = horario;
-    estado.ultimoFuncionario = preferencias.ultimo_funcionario ?? "";
+    estado.ultimoFuncionarioId = preferencias.ultimo_funcionario_id ?? null;
     renderizar();
 
     const resultado = await api.conectar();

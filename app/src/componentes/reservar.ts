@@ -1,17 +1,24 @@
 /**
- * Modal de reserva (RF-03, RF-05): un rango de bloques del día, con atajos
- * Mañana / Tarde / Día completo, y opcionalmente repetido cada semana hasta una
- * fecha. Es la forma en que el CESFAM planificaba en su planilla (un box por
- * medio día, el mismo patrón todas las semanas).
+ * Modal de reserva (RF-03, RF-05, RF-13, RF-14): un rango de bloques del día, con
+ * atajos Mañana / Tarde / Día completo, y opcionalmente repetido cada semana.
+ * Se elige un funcionario registrado y activo (enviando `funcionario_id`); si el
+ * nombre escrito no está registrado, ofrece registrarlo sin salir del modal.
  */
 import { api } from "../api";
 import { campo, el } from "../dom";
-import { estado, etiquetaBloque, etiquetaFinBloque } from "../estado";
+import {
+  buscarFuncionarioActivoPorNombre,
+  estado,
+  etiquetaBloque,
+  etiquetaDeFuncionario,
+  etiquetaFinBloque,
+  funcionariosActivos,
+} from "../estado";
 import { fechaCorta, finDeMes, sumarDias } from "../fechas";
 import { textos } from "../textos";
 import type { BoxAtencion, ErrorUi, Horario, ResultadoLote } from "../tipos";
 import { abrirDialogo } from "./dialogo";
-import { mientrasOcupado, soloLectura } from "./formulario";
+import { chipEtiqueta, mientrasOcupado, soloLectura } from "./formulario";
 
 /** Igual que `MAX_FECHAS_LOTE` en la API. */
 const MAX_FECHAS = 46;
@@ -87,13 +94,62 @@ export function abrirReservar(
     el("button", { clase: "boton boton--chico", texto: textos.reserva.diaCompleto, atributos: { type: "button" }, alHacerClic: () => fijar(0, total - 1) }),
   );
 
-  // ── Personas ──
-  // `lista-funcionarios` (index.html) sugiere nombres ya usados, para no escribir el
-  // mismo funcionario de tres formas distintas.
-  const funcionario = el("input", {
+  // ── Funcionario registrado (RF-13, RF-14) ──
+  const inputFuncionario = el("input", {
     atributos: { type: "text", maxlength: "80", required: "", autocomplete: "off", list: "lista-funcionarios" },
   });
-  funcionario.value = estado.ultimoFuncionario;
+  const ultimoActivo =
+    estado.ultimoFuncionarioId !== null
+      ? funcionariosActivos().find((f) => f.id === estado.ultimoFuncionarioId) ?? null
+      : null;
+  inputFuncionario.value = ultimoActivo?.nombre ?? "";
+
+  const estadoFuncionario = el("div", { clase: "reserva-funcionario__estado" });
+
+  const registrarEnLinea = async (nombre: string, btnRegistrar: HTMLButtonElement) => {
+    dialogo.mostrarError(null);
+    try {
+      const creado = await mientrasOcupado(btnRegistrar, textos.reserva.registrandoFuncionario, () =>
+        api.crearFuncionario(nombre, null),
+      );
+      estado.funcionarios = [...estado.funcionarios.filter((f) => f.id !== creado.id), creado].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, "es"),
+      );
+      inputFuncionario.value = creado.nombre;
+      actualizarEstadoFuncionario();
+      motivo.focus();
+    } catch (error) {
+      dialogo.mostrarError((error as ErrorUi).mensaje);
+    }
+  };
+
+  function actualizarEstadoFuncionario(): void {
+    const escrito = inputFuncionario.value.trim();
+    if (!escrito) {
+      estadoFuncionario.replaceChildren();
+      return;
+    }
+    const coincidencia = buscarFuncionarioActivoPorNombre(escrito);
+    if (coincidencia) {
+      const etiq = etiquetaDeFuncionario(coincidencia.id);
+      estadoFuncionario.replaceChildren(...(etiq ? [chipEtiqueta(etiq)] : []));
+      return;
+    }
+    const btnRegistrar = el("button", {
+      clase: "boton boton--chico boton--secundario",
+      texto: textos.reserva.registrarFuncionario(escrito),
+      atributos: { type: "button" },
+      alHacerClic: () => void registrarEnLinea(escrito, btnRegistrar),
+    });
+    estadoFuncionario.replaceChildren(btnRegistrar);
+  }
+
+  inputFuncionario.addEventListener("input", () => {
+    dialogo.mostrarError(null);
+    actualizarEstadoFuncionario();
+  });
+  actualizarEstadoFuncionario();
+
   const motivo = el("input", { atributos: { type: "text", maxlength: "200", autocomplete: "off" } });
 
   // ── Repetición semanal ──
@@ -143,7 +199,7 @@ export function abrirReservar(
       el("span", { clase: "campo__etiqueta", texto: textos.reserva.horario }),
       el("div", { clase: "rango" }, selDesde, el("span", { texto: "–" }), selHasta, atajos),
     ),
-    campo(textos.reserva.funcionario, funcionario),
+    campo(textos.reserva.funcionario, inputFuncionario, estadoFuncionario),
     campo(textos.reserva.motivo, motivo),
     el(
       "div",
@@ -155,11 +211,18 @@ export function abrirReservar(
   );
   formulario.id = "formulario-reserva";
 
-  async function reservar(omitirOcupados: boolean, boton: HTMLButtonElement): Promise<void> {
-    const nombre = funcionario.value.trim();
-    if (!nombre) {
+  async function reservar(omitirOcupados: boolean, botonAccion: HTMLButtonElement): Promise<void> {
+    const nombreEscrito = inputFuncionario.value.trim();
+    if (!nombreEscrito) {
       dialogo.mostrarError(textos.reserva.funcionarioObligatorio);
-      funcionario.focus();
+      inputFuncionario.focus();
+      return;
+    }
+    const elegido = buscarFuncionarioActivoPorNombre(nombreEscrito);
+    if (!elegido) {
+      actualizarEstadoFuncionario();
+      dialogo.mostrarError(textos.reserva.funcionarioNoRegistrado);
+      inputFuncionario.focus();
       return;
     }
     const [a, b] = leerRango();
@@ -174,18 +237,18 @@ export function abrirReservar(
     }
     dialogo.mostrarError(null);
     try {
-      const resultado = await mientrasOcupado(boton, textos.reserva.enviando, () =>
+      const resultado = await mientrasOcupado(botonAccion, textos.reserva.enviando, () =>
         api.crearReservas({
           box_id: box.id,
           fechas,
           desde: a,
           hasta: b,
-          funcionario: nombre,
+          funcionario_id: elegido.id,
           motivo: motivo.value.trim() || null,
           omitir_ocupados: omitirOcupados,
         }),
       );
-      estado.ultimoFuncionario = nombre;
+      estado.ultimoFuncionarioId = elegido.id;
       dialogo.cerrar();
       acciones.alReservar(resultado);
     } catch (error) {
@@ -195,7 +258,6 @@ export function abrirReservar(
         dialogo.cerrar();
         acciones.alConflicto(e);
       } else if (e.codigo === "bloque_ocupado") {
-        // Parte del rango o de la serie ya está tomada: se ofrece reservar el resto.
         dialogo.mostrarError(textos.reserva.algunosOcupados);
         soloLibres.hidden = false;
       } else {
@@ -212,5 +274,5 @@ export function abrirReservar(
 
   dialogo.cuerpo.append(formulario);
   dialogo.pie.prepend(enviar, soloLibres);
-  (funcionario.value ? motivo : funcionario).focus();
+  (inputFuncionario.value ? motivo : inputFuncionario).focus();
 }

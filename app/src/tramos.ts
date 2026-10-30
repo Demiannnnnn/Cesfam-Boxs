@@ -11,6 +11,7 @@ export interface Tramo {
   desde: number;
   /** Último bloque del tramo (inclusivo). */
   hasta: number;
+  funcionario_id: number | null;
   funcionario: string;
   motivo: string | null;
   /** Reservas del tramo, ordenadas por bloque. */
@@ -21,6 +22,7 @@ function continua(tramo: Tramo, reserva: Reserva): boolean {
   return (
     tramo.box_id === reserva.box_id &&
     tramo.hasta + 1 === reserva.bloque &&
+    tramo.funcionario_id === reserva.funcionario_id &&
     tramo.funcionario === reserva.funcionario &&
     tramo.motivo === reserva.motivo
   );
@@ -41,6 +43,7 @@ export function agruparEnTramos(reservas: Reserva[]): Map<string, Tramo> {
       box_id: reserva.box_id,
       desde: reserva.bloque,
       hasta: reserva.bloque,
+      funcionario_id: reserva.funcionario_id,
       funcionario: reserva.funcionario,
       motivo: reserva.motivo,
       reservas: [reserva],

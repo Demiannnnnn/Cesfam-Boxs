@@ -1,32 +1,28 @@
 /**
- * Modales de la app: detalle/cancelar (RF-04), boxes (RF-06), conexión manual
- * (RF-09) y exportar (RF-12). El de reserva vive en `reservar.ts`.
- *
- * Cada modal recibe sus dependencias por parámetro y avisa al terminar mediante
- * callbacks; no conoce el ciclo de refresco.
+ * Modales de la app: detalle/cancelar (RF-04), boxes (RF-06, RF-14), conexión manual
+ * (RF-09) y exportar (RF-12). Reserva, funcionarios y etiquetas viven en sus propios
+ * módulos.
  */
 import { save } from "@tauri-apps/plugin-dialog";
 
 import { api } from "../api";
 import { boton, campo, el } from "../dom";
-import { estado, nombreBox, rangoHorario } from "../estado";
+import { estado, etiquetaDeFuncionario, nombreBox, rangoHorario } from "../estado";
 import { fechaCorta, fechaHora, finDeMes, inicioDeMes } from "../fechas";
 import { textos } from "../textos";
 import type { Tramo } from "../tramos";
-import type { BoxAtencion, ErrorUi, ResultadoConexion } from "../tipos";
+import type { BoxAtencion, ErrorUi, Etiqueta, ResultadoConexion } from "../tipos";
 import { mostrarAviso } from "./aviso";
 import { abrirDialogo, confirmar } from "./dialogo";
-import { mientrasOcupado, soloLectura } from "./formulario";
+import { chipEtiqueta, crearSelectorEtiqueta, mientrasOcupado, soloLectura } from "./formulario";
 
 // ─── Detalle y cancelación ─────────────────────────────────────────────────
 
-/** Grupo común a todas las reservas del tramo, si lo hay (rango o serie). */
 function grupoDelTramo(tramo: Tramo): number | null {
   const grupo = tramo.reservas[0]?.grupo ?? null;
   return grupo !== null && tramo.reservas.every((r) => r.grupo === grupo) ? grupo : null;
 }
 
-/** Cancela cada bloque del tramo. Devuelve `false` si falló algo distinto de "ya cancelada". */
 async function cancelarTramo(tramo: Tramo, mostrarError: (m: string) => void): Promise<boolean> {
   let yaCanceladas = 0;
   for (const reserva of tramo.reservas) {
@@ -41,22 +37,20 @@ async function cancelarTramo(tramo: Tramo, mostrarError: (m: string) => void): P
       yaCanceladas += 1;
     }
   }
-  if (yaCanceladas === tramo.reservas.length) mostrarAviso(textos.detalle.yaCancelada);
-  else mostrarAviso(textos.detalle.cancelada, "exito");
+  mostrarAviso(yaCanceladas === tramo.reservas.length ? textos.detalle.yaCancelada : textos.detalle.cancelada, yaCanceladas === tramo.reservas.length ? "error" : "exito");
   return true;
 }
 
-/**
- * Detalle de un tramo (bloques seguidos de una misma reserva). Cancelar libera
- * todos sus bloques: el usuario ve una sola barra y espera que desaparezca entera.
- * Si el tramo es parte de una serie, ofrece cancelar también las semanas siguientes.
- */
 export function abrirDetalle(tramo: Tramo, alCambiar: () => void): void {
   const dialogo = abrirDialogo(textos.detalle.titulo);
   const horas = rangoHorario(tramo.desde, tramo.hasta);
   const primera = tramo.reservas[0];
   const fecha = primera?.fecha ?? estado.fecha;
   const grupo = grupoDelTramo(tramo);
+  const etiqueta = etiquetaDeFuncionario(tramo.funcionario_id);
+  const datoEtiqueta = etiqueta
+    ? el("div", { clase: "dato" }, el("span", { clase: "dato__etiqueta", texto: textos.detalle.etiqueta }), el("span", { clase: "dato__valor" }, chipEtiqueta(etiqueta)))
+    : null;
   dialogo.cuerpo.append(
     el(
       "div",
@@ -65,50 +59,46 @@ export function abrirDetalle(tramo: Tramo, alCambiar: () => void): void {
       soloLectura(textos.reserva.fecha, fechaCorta(fecha)),
       soloLectura(textos.detalle.horario, horas),
       soloLectura(textos.detalle.funcionario, tramo.funcionario),
+      datoEtiqueta,
       soloLectura(textos.detalle.motivo, tramo.motivo ?? textos.detalle.sinMotivo),
       soloLectura(textos.detalle.creada, primera ? fechaHora(primera.creada_en) : ""),
     ),
   );
 
-  const cancelarDia = boton(
-    grupo === null ? textos.detalle.cancelar : textos.detalle.cancelarDia,
-    async () => {
-      const seguro = await confirmar(textos.detalle.confirmarCancelacion(tramo.funcionario, horas), textos.detalle.siCancelar);
-      if (!seguro) return;
-      if (await cancelarTramo(tramo, dialogo.mostrarError)) dialogo.cerrar();
-      alCambiar();
-    },
-    "peligro",
-  );
-  dialogo.pie.prepend(cancelarDia);
-
-  if (grupo !== null) {
-    const cancelarSerie = boton(
-      textos.detalle.cancelarSiguientes,
+  dialogo.pie.prepend(
+    boton(
+      grupo === null ? textos.detalle.cancelar : textos.detalle.cancelarDia,
       async () => {
-        const seguro = await confirmar(
-          textos.detalle.confirmarCancelacionSerie(tramo.funcionario, fechaCorta(fecha)),
-          textos.detalle.siCancelar,
-        );
-        if (!seguro) return;
-        try {
-          const { canceladas } = await api.cancelarGrupo(grupo, fecha);
-          mostrarAviso(textos.detalle.serieCancelada(canceladas), "exito");
-          dialogo.cerrar();
-        } catch (error) {
-          const e = error as ErrorUi;
-          if (e.codigo !== "no_encontrado") {
-            dialogo.mostrarError(e.mensaje);
-            return;
-          }
-          mostrarAviso(textos.detalle.yaCancelada);
-          dialogo.cerrar();
-        }
+        if (!(await confirmar(textos.detalle.confirmarCancelacion(tramo.funcionario, horas), textos.detalle.siCancelar))) return;
+        if (await cancelarTramo(tramo, dialogo.mostrarError)) dialogo.cerrar();
         alCambiar();
       },
       "peligro",
+    ),
+  );
+
+  if (grupo !== null) {
+    dialogo.pie.prepend(
+      boton(
+        textos.detalle.cancelarSiguientes,
+        async () => {
+          const msg = textos.detalle.confirmarCancelacionSerie(tramo.funcionario, fechaCorta(fecha));
+          if (!(await confirmar(msg, textos.detalle.siCancelar))) return;
+          try {
+            const { canceladas } = await api.cancelarGrupo(grupo, fecha);
+            mostrarAviso(textos.detalle.serieCancelada(canceladas), "exito");
+            dialogo.cerrar();
+          } catch (error) {
+            const e = error as ErrorUi;
+            if (e.codigo !== "no_encontrado") return dialogo.mostrarError(e.mensaje);
+            mostrarAviso(textos.detalle.yaCancelada);
+            dialogo.cerrar();
+          }
+          alCambiar();
+        },
+        "peligro",
+      ),
     );
-    dialogo.pie.prepend(cancelarSerie);
   }
 }
 
@@ -116,114 +106,120 @@ export function abrirDetalle(tramo: Tramo, alCambiar: () => void): void {
 
 export function abrirBoxes(alCerrar: () => void): void {
   const dialogo = abrirDialogo(textos.boxes.titulo, alCerrar);
-  const lista = el("div", { clase: "lista-boxes" });
-  const nuevo = el("input", { atributos: { type: "text", maxlength: "40" } });
+  const lista = el("div", { clase: "lista-admin" });
+  const contenedorNuevo = el("div", {});
 
   const recargar = async () => {
     try {
-      const boxes = await api.listarBoxes(true);
+      const [boxes, etiquetas] = await Promise.all([api.listarBoxes(true), api.listarEtiquetas(true)]);
+      estado.etiquetas = etiquetas;
       lista.replaceChildren(
-        ...(boxes.length ? boxes.map((b) => filaBox(b, dialogo.mostrarError, recargar)) : [
-          el("p", { texto: textos.boxes.vacio }),
-        ]),
+        ...(boxes.length ? boxes.map((b) => filaBox(b, etiquetas, recargar)) : [el("p", { texto: textos.boxes.vacio })]),
       );
+      construirFormularioNuevo(etiquetas);
       dialogo.mostrarError(null);
     } catch (error) {
       dialogo.mostrarError((error as ErrorUi).mensaje);
     }
   };
 
-  const agregar = el("button", {
-    clase: "boton boton--primario",
-    texto: textos.boxes.agregar,
-    atributos: { type: "submit" },
-  });
-  const formulario = el("form", { clase: "lista-boxes__nuevo" }, campo(textos.boxes.nuevo, nuevo), agregar);
-  formulario.addEventListener("submit", async (evento) => {
-    evento.preventDefault();
-    try {
-      await api.crearBox(nuevo.value);
-      nuevo.value = "";
-      await recargar();
-      nuevo.focus();
-    } catch (error) {
-      dialogo.mostrarError((error as ErrorUi).mensaje);
-    }
-  });
+  const construirFormularioNuevo = (etiquetas: Etiqueta[]) => {
+    const nuevo = el("input", { atributos: { type: "text", maxlength: "40" } });
+    const selectorEtiqueta = crearSelectorEtiqueta(etiquetas, null, textos.boxes.sinEtiqueta, textos.boxes.etiqueta);
+    const agregar = el("button", { clase: "boton boton--primario", texto: textos.boxes.agregar, atributos: { type: "submit" } });
+    const formulario = el(
+      "form",
+      { clase: "lista-admin__nuevo" },
+      el(
+        "div",
+        { clase: "lista-admin__nuevo-controles" },
+        campo(textos.boxes.nuevo, nuevo),
+        campo(textos.boxes.etiqueta, selectorEtiqueta.raiz),
+        agregar,
+      ),
+    );
+    formulario.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      try {
+        await api.crearBox(nuevo.value, selectorEtiqueta.valor());
+        await recargar();
+      } catch (error) {
+        dialogo.mostrarError((error as ErrorUi).mensaje);
+      }
+    });
+    contenedorNuevo.replaceChildren(formulario);
+  };
 
-  dialogo.cuerpo.append(lista, formulario);
+  dialogo.cuerpo.append(lista, contenedorNuevo);
   void recargar();
-  nuevo.focus();
 }
 
-function filaBox(
-  box: BoxAtencion,
-  mostrarError: (mensaje: string | null) => void,
-  recargar: () => Promise<void>,
-): HTMLElement {
-  const nombre = el("input", {
-    atributos: { type: "text", maxlength: "40", "aria-label": textos.boxes.nombre },
-  });
+function filaBox(box: BoxAtencion, etiquetas: Etiqueta[], recargar: () => Promise<void>): HTMLElement {
+  const nombre = el("input", { atributos: { type: "text", maxlength: "40", "aria-label": textos.boxes.nombre } });
   nombre.value = box.nombre;
+  const selectorEtiqueta = crearSelectorEtiqueta(etiquetas, box.etiqueta_id, textos.boxes.sinEtiqueta, textos.boxes.etiqueta);
   const activo = el("input", { atributos: { type: "checkbox" } });
   activo.checked = box.activo;
+  const errorFila = el("p", { clase: "fila-admin__error", atributos: { role: "alert" } });
+  errorFila.hidden = true;
+
+  const mostrarErrorFila = (mensaje: string | null) => {
+    errorFila.textContent = mensaje ?? "";
+    errorFila.hidden = mensaje === null;
+  };
 
   const guardar = boton(textos.boxes.guardar, async () => {
+    mostrarErrorFila(null);
     try {
-      await api.actualizarBox(box.id, { nombre: nombre.value });
+      await api.actualizarBox(box.id, { nombre: nombre.value, etiqueta_id: selectorEtiqueta.valor() });
       await recargar();
     } catch (error) {
-      mostrarError((error as ErrorUi).mensaje);
+      mostrarErrorFila((error as ErrorUi).mensaje);
     }
   });
 
   activo.addEventListener("change", async () => {
+    mostrarErrorFila(null);
     const quiereActivo = activo.checked;
-    if (!quiereActivo) {
-      const seguro = await confirmar(textos.boxes.confirmarDesactivar(box.nombre), textos.boxes.siDesactivar);
-      if (!seguro) {
-        activo.checked = true;
-        return;
-      }
+    if (!quiereActivo && !(await confirmar(textos.boxes.confirmarDesactivar(box.nombre), textos.boxes.siDesactivar))) {
+      activo.checked = true;
+      return;
     }
     try {
       await api.actualizarBox(box.id, { activo: quiereActivo });
       await recargar();
     } catch (error) {
       activo.checked = !quiereActivo;
-      mostrarError((error as ErrorUi).mensaje);
+      mostrarErrorFila((error as ErrorUi).mensaje);
     }
   });
 
   return el(
     "div",
-    { clase: `lista-boxes__fila${box.activo ? "" : " lista-boxes__fila--inactivo"}` },
-    nombre,
-    guardar,
-    el("label", { clase: "casilla" }, activo, el("span", { texto: textos.boxes.activo })),
+    { clase: `fila-admin${box.activo ? "" : " fila-admin--inactivo"}` },
+    el(
+      "div",
+      { clase: "fila-admin__controles fila-admin__controles--box" },
+      nombre,
+      selectorEtiqueta.raiz,
+      el("label", { clase: "casilla" }, activo, el("span", { texto: textos.boxes.activo })),
+      guardar,
+    ),
+    errorFila,
   );
 }
 
 // ─── Conexión manual ───────────────────────────────────────────────────────
 
-/**
- * Pide la dirección del servidor hasta lograr conectar. No se puede cerrar sin
- * conectar: sin servidor la app no tiene nada que mostrar.
- */
 export function abrirConexionManual(mensaje: string, alConectar: (r: ResultadoConexion) => void): void {
   const dialogo = abrirDialogo(textos.conexionManual.titulo, undefined, false);
   const direccion = el("input", { atributos: { type: "text", autocomplete: "off", spellcheck: "false" } });
-
   const conectar = el("button", {
     clase: "boton boton--primario",
     texto: textos.conexionManual.conectar,
     atributos: { type: "submit", form: "formulario-conexion" },
   });
-  const buscar = el("button", {
-    clase: "boton boton--secundario",
-    texto: textos.conexionManual.buscar,
-    atributos: { type: "button" },
-  });
+  const buscar = el("button", { clase: "boton boton--secundario", texto: textos.conexionManual.buscar, atributos: { type: "button" } });
 
   const terminar = (resultado: ResultadoConexion) => {
     if (resultado.tipo === "conectado") {

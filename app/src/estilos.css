@@ -303,7 +303,7 @@ body {
   position: sticky;
   left: 0;
   z-index: 1;
-  padding: 0 0.75rem;
+  padding: 0.2rem 0.65rem;
   background: var(--color-superficie);
   border-right: 1px solid var(--color-borde);
   border-bottom: 1px solid #edf0f3;
@@ -312,6 +312,46 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.grilla__box-nombre {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Leyenda y chips de etiquetas ───────────────────────────── */
+
+.leyenda-etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.5rem 1rem 0;
+}
+
+.chip-etiqueta {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-etiqueta--box {
+  display: inline-block;
+  margin-top: 0.1rem;
+  padding: 0.08rem 0.45rem;
+  font-size: 0.7rem;
+}
+
+.chip-etiqueta--leyenda {
+  font-size: 0.8rem;
 }
 
 .grilla__tabla td {
@@ -559,7 +599,7 @@ body {
 /* ─── Diálogos ───────────────────────────────────────────────── */
 
 .dialogo {
-  width: min(32rem, 92vw);
+  width: min(44rem, 94vw);
   padding: 0;
   border: none;
   border-radius: 10px;
@@ -692,4 +732,151 @@ body {
   align-items: center;
   gap: 0.3rem;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ─── Modales de administración (Boxes, Funcionarios, Etiquetas) ─ */
+
+.buscador-modal {
+  font: inherit;
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+}
+
+.lista-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.fila-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fila-admin__controles {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fila-admin__controles input[type="text"],
+.lista-admin__nuevo input[type="text"] {
+  font: inherit;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+}
+
+.fila-admin--inactivo input[type="text"] {
+  color: var(--color-texto-suave);
+  text-decoration: line-through;
+}
+
+.fila-admin__error {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radio);
+  background: #fef3f2;
+  color: var(--color-peligro);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.lista-admin__nuevo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-borde);
+}
+
+.lista-admin__nuevo-controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.lista-admin__nuevo-controles .campo {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.selector-etiqueta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.selector-etiqueta select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+}
+
+.selector-etiqueta__muestra {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid rgb(0 0 0 / 20%);
+}
+
+.selector-etiqueta__muestra--vacia {
+  border-style: dashed;
+  border-color: var(--color-borde);
+}
+
+.selector-color {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.selector-color__input {
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0.1rem;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  cursor: pointer;
+}
+
+.paleta-colores {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.paleta-colores__muestra {
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.paleta-colores__muestra--activa {
+  border-color: var(--color-texto);
+  box-shadow: 0 0 0 2px #fff inset;
+}
+
+.reserva-funcionario__estado {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.6rem;
+  margin-top: 0.15rem;
 }

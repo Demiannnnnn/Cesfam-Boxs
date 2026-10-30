@@ -1,14 +1,16 @@
 /**
- * Vista semanal: boxes en filas y, por cada día hábil, dos columnas (mañana y
- * tarde), igual que "BOX AM / BOX PM" en la planilla del CESFAM. Cada celda dice
- * quién tiene el box en ese medio día; la última fila lista los boxes libres de
- * cada medio día (la hoja "BOX DISPONIBLE" que antes se armaba a mano).
+ * Vista semanal (RF-01, RF-14): boxes en filas y, por cada día hábil, dos columnas
+ * (mañana y tarde), igual que "BOX AM / BOX PM" en la planilla del CESFAM. Cada celda
+ * dice quién tiene el box en ese medio día con el color de la etiqueta del funcionario;
+ * la última fila lista los boxes libres de cada medio día.
  */
+import { colorTexto } from "../colores";
 import { el } from "../dom";
-import { coincideFiltro, estado, rangoHorario } from "../estado";
+import { coincideFiltro, estado, etiquetaDeFuncionario, rangoHorario } from "../estado";
 import { diaCorto, diasHabilesDeSemana, hoy } from "../fechas";
 import { textos } from "../textos";
 import type { BoxAtencion, Horario, Reserva } from "../tipos";
+import { encabezadoBox } from "./grilla";
 
 export interface AccionesSemana {
   /** Medio día completamente libre: reservar desde el inicio de ese periodo. */
@@ -22,6 +24,12 @@ interface Periodo {
   desde: number;
   hasta: number;
   etiqueta: string;
+}
+
+interface PersonaPeriodo {
+  funcionario_id: number | null;
+  nombre: string;
+  horas: string;
 }
 
 function periodos(horario: Horario): [Periodo, Periodo] {
@@ -45,14 +53,26 @@ function indicePorBoxYDia(reservas: Reserva[]): Map<string, Reserva[]> {
 }
 
 /** Funcionarios del periodo, en orden de aparición, con su horario para el tooltip. */
-function resumir(reservas: Reserva[]): Array<{ nombre: string; horas: string }> {
-  const porNombre = new Map<string, { desde: number; hasta: number }>();
+function resumir(reservas: Reserva[]): PersonaPeriodo[] {
+  const porClave = new Map<string, { funcionario_id: number | null; nombre: string; desde: number; hasta: number }>();
   for (const r of reservas) {
-    const actual = porNombre.get(r.funcionario);
+    const clave = r.funcionario_id !== null ? `id:${r.funcionario_id}` : `txt:${r.funcionario}`;
+    const actual = porClave.get(clave);
     if (actual) actual.hasta = Math.max(actual.hasta, r.bloque);
-    else porNombre.set(r.funcionario, { desde: r.bloque, hasta: r.bloque });
+    else {
+      porClave.set(clave, {
+        funcionario_id: r.funcionario_id,
+        nombre: r.funcionario,
+        desde: r.bloque,
+        hasta: r.bloque,
+      });
+    }
   }
-  return [...porNombre].map(([nombre, { desde, hasta }]) => ({ nombre, horas: rangoHorario(desde, hasta) }));
+  return [...porClave.values()].map(({ funcionario_id, nombre, desde, hasta }) => ({
+    funcionario_id,
+    nombre,
+    horas: rangoHorario(desde, hasta),
+  }));
 }
 
 export function renderizarSemana(contenedor: HTMLElement, acciones: AccionesSemana): void {
@@ -88,12 +108,7 @@ export function renderizarSemana(contenedor: HTMLElement, acciones: AccionesSema
         return td;
       }),
     );
-    return el(
-      "tr",
-      {},
-      el("th", { clase: "grilla__box", texto: box.nombre, atributos: { scope: "row", title: box.nombre } }),
-      ...celdas,
-    );
+    return el("tr", {}, encabezadoBox(box), ...celdas);
   });
 
   const tabla = el(
@@ -163,10 +178,13 @@ function celda(
 
   const personas = resumir(reservas);
   const completo = reservas.length === periodo.hasta - periodo.desde + 1;
-  const coincidencias = personas.map((p) => coincideFiltro(p.nombre));
+  const coincidencias = personas.map((p) => coincideFiltro({ funcionario_id: p.funcionario_id, nombre: p.nombre }));
   const clases = ["celda", completo ? "celda--ocupada" : "celda--parcial"];
   if (coincidencias.some((c) => c === true)) clases.push("celda--destacada");
   else if (coincidencias.some((c) => c === false)) clases.push("celda--atenuada");
+
+  const etiquetaColor =
+    personas.map((p) => etiquetaDeFuncionario(p.funcionario_id)).find((e) => e !== null) ?? null;
 
   const detalle = personas.map((p) => `${p.nombre} (${p.horas})`).join(" · ");
   const visibles = personas.slice(0, 2);
@@ -182,6 +200,11 @@ function celda(
       ? el("span", { clase: "celda__motivo", texto: textos.semana.yOtros(personas.length - visibles.length) })
       : null,
   );
+  if (etiquetaColor) {
+    boton.style.backgroundColor = etiquetaColor.color;
+    boton.style.borderColor = etiquetaColor.color;
+    boton.style.color = colorTexto(etiquetaColor.color);
+  }
   boton.disabled = deshabilitada;
   return boton;
 }

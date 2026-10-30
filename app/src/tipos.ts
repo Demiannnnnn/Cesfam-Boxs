@@ -1,10 +1,44 @@
 /** Tipos del contrato, espejo de `shared/src/modelo.rs` y de `comandos.rs`. */
 
+export interface Etiqueta {
+  id: number;
+  nombre: string;
+  /** Color hexadecimal `#rrggbb` en minúsculas. */
+  color: string;
+  activo: boolean;
+}
+
+export interface CambiosEtiqueta {
+  nombre?: string;
+  color?: string;
+  activo?: boolean;
+}
+
+export interface Funcionario {
+  id: number;
+  nombre: string;
+  etiqueta_id: number | null;
+  activo: boolean;
+}
+
+export interface CambiosFuncionario {
+  nombre?: string;
+  etiqueta_id?: number | null;
+  activo?: boolean;
+}
+
 export interface BoxAtencion {
   id: number;
   nombre: string;
   activo: boolean;
   orden: number;
+  etiqueta_id: number | null;
+}
+
+export interface CambiosBox {
+  nombre?: string;
+  activo?: boolean;
+  etiqueta_id?: number | null;
 }
 
 export interface Reserva {
@@ -13,6 +47,7 @@ export interface Reserva {
   /** AAAA-MM-DD */
   fecha: string;
   bloque: number;
+  funcionario_id: number | null;
   funcionario: string;
   motivo: string | null;
   creada_en: string;
@@ -26,7 +61,7 @@ export interface NuevoLote {
   fechas: string[];
   desde: number;
   hasta: number;
-  funcionario: string;
+  funcionario_id: number;
   motivo: string | null;
   omitir_ocupados: boolean;
 }
@@ -34,11 +69,6 @@ export interface NuevoLote {
 export interface ResultadoLote {
   creadas: Reserva[];
   omitidos: Array<{ fecha: string; bloque: number }>;
-}
-
-export interface CambiosBox {
-  nombre?: string;
-  activo?: boolean;
 }
 
 export interface Horario {
@@ -51,7 +81,7 @@ export interface Horario {
 }
 
 export interface Preferencias {
-  ultimo_funcionario: string | null;
+  ultimo_funcionario_id: number | null;
   servidor: string | null;
 }
 

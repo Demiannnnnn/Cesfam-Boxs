@@ -13,7 +13,7 @@
 | 4 — Instalación | pendiente |
 | 5 — Entrega | borradores de manual y guía en `docs/` |
 | 6 — Grilla agenda, rangos y semana | implementada (ADR-014, ADR-015, ADR-016) |
-| 7 — Funcionarios, etiquetas y búsqueda | en curso: T-7.1 completada (API de funcionarios y etiquetas, migración v3); pendientes T-7.2 y T-7.3 |
+| 7 — Funcionarios, etiquetas y búsqueda | en curso: T-7.1 completada y T-7.2 implementada (validación manual pendiente); pendiente T-7.3 |
 
 ## Ramas activas
 
@@ -22,7 +22,7 @@
 | `dev/documentacion-base` | README, AGENTS.md, docs/, .ai-context/, tasks/ |
 | `dev/fase-1-2-api` | workspace, crate shared, API completa (sobre `dev/documentacion-base`) |
 | `dev/fase-3-app` | app Tauri completa (sobre `dev/fase-1-2-api`) |
-| `dev/fase-7-funcionarios-etiquetas` | fase 7 (ADR-017): T-7.1 completada |
+| `dev/fase-7-funcionarios-etiquetas` | fase 7 (ADR-017): T-7.1 completada, T-7.2 implementada |
 
 ## Supuestos vigentes (hasta cerrar fase 0)
 

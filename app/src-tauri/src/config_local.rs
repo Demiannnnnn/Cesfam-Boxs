@@ -13,8 +13,9 @@ pub struct ConfigLocal {
     pub servidor: Option<String>,
     /// Nombre de equipo del servidor, para los mensajes de error.
     pub equipo_servidor: Option<String>,
-    /// Último nombre usado al reservar desde este PC (comodidad, no identidad).
-    pub ultimo_funcionario: Option<String>,
+    /// Identificador del último funcionario usado al reservar desde este PC
+    /// (comodidad, no identidad). Cubre RF-10 y RF-13.
+    pub ultimo_funcionario_id: Option<i64>,
 }
 
 impl ConfigLocal {
@@ -54,7 +55,7 @@ mod tests {
         let config = ConfigLocal {
             servidor: Some("PC-SOME:8000".into()),
             equipo_servidor: Some("PC-SOME".into()),
-            ultimo_funcionario: None,
+            ultimo_funcionario_id: Some(7),
         };
 
         config.guardar(&ruta).unwrap();
@@ -73,14 +74,18 @@ mod tests {
     }
 
     #[test]
-    fn campos_faltantes_usan_valor_por_defecto() {
+    fn campos_faltantes_y_campo_viejo_de_texto_se_aceptan_sin_fallar() {
         let carpeta = tempfile::tempdir().unwrap();
         let ruta = carpeta.path().join("cliente.json");
-        std::fs::write(&ruta, r#"{"servidor":"10.0.0.5:8000"}"#).unwrap();
+        std::fs::write(
+            &ruta,
+            r#"{"servidor":"10.0.0.5:8000","ultimo_funcionario":"María Pérez"}"#,
+        )
+        .unwrap();
 
         let config = ConfigLocal::cargar(&ruta);
 
         assert_eq!(config.servidor.as_deref(), Some("10.0.0.5:8000"));
-        assert_eq!(config.ultimo_funcionario, None);
+        assert_eq!(config.ultimo_funcionario_id, None);
     }
 }
