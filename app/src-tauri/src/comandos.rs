@@ -186,7 +186,10 @@ pub async fn listar_boxes(
 pub async fn crear_box(estado: State<'_, EstadoApp>, nombre: String) -> Resultado<BoxAtencion> {
     let cliente = estado.cliente()?;
     cliente
-        .crear_box(&NuevoBox { nombre })
+        .crear_box(&NuevoBox {
+            nombre,
+            etiqueta_id: None,
+        })
         .await
         .map_err(|e| estado.error(e))
 }

@@ -63,6 +63,7 @@ mod tests {
             box_id: 1,
             fecha: "2026-10-01".parse().unwrap(),
             bloque: Bloque::new(0).unwrap(),
+            funcionario_id: None,
             funcionario: funcionario.into(),
             motivo: motivo.map(Into::into),
             creada_en: "2026-09-30T10:00:00".into(),
@@ -76,6 +77,7 @@ mod tests {
             nombre: "Box 1".into(),
             activo: true,
             orden: 1,
+            etiqueta_id: None,
         }]
     }
 

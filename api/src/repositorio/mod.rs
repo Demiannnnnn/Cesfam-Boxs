@@ -1,6 +1,8 @@
 //! Acceso a datos. Único lugar con SQL; siempre parametrizado (RNF-06).
 
 pub mod boxes;
+pub mod etiquetas;
+pub mod funcionarios;
 pub mod reservas;
 
 use rusqlite::ffi;
@@ -10,7 +12,7 @@ use rusqlite::ffi;
 pub enum ErrorRepositorio {
     #[error("el box, fecha y bloque ya están reservados")]
     BloqueOcupado,
-    #[error("ya existe un box con ese nombre")]
+    #[error("nombre duplicado")]
     NombreDuplicado,
     #[error("registro no encontrado")]
     NoEncontrado,

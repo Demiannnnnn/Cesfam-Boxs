@@ -23,11 +23,23 @@ pub fn crear_router(estado: AppState) -> Router {
         )
         .route("/boxes/{id}", patch(handlers::actualizar_box))
         .route(
+            "/etiquetas",
+            get(handlers::listar_etiquetas).post(handlers::crear_etiqueta),
+        )
+        .route("/etiquetas/{id}", patch(handlers::actualizar_etiqueta))
+        .route(
+            "/funcionarios",
+            get(handlers::listar_funcionarios).post(handlers::crear_funcionario),
+        )
+        .route(
+            "/funcionarios/{id}",
+            patch(handlers::actualizar_funcionario),
+        )
+        .route(
             "/reservas",
             get(handlers::listar_reservas).post(handlers::crear_reserva),
         )
         .route("/reservas/lote", post(handlers::crear_lote))
-        .route("/funcionarios", get(handlers::listar_funcionarios))
         .route(
             "/reservas/{id}",
             axum::routing::delete(handlers::cancelar_reserva),

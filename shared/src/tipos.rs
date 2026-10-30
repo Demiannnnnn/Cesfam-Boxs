@@ -15,6 +15,8 @@ pub enum ErrorTipo {
     BloqueFueraDeRango(u8),
     #[error("la fecha \"{0}\" no es válida (formato esperado AAAA-MM-DD)")]
     FechaInvalida(String),
+    #[error("el color \"{0}\" no es válido (formato esperado #RRGGBB)")]
+    ColorInvalido(String),
 }
 
 /// Índice de un bloque horario dentro del día (`0..CANTIDAD_BLOQUES`).
@@ -128,6 +130,56 @@ impl fmt::Display for Fecha {
     }
 }
 
+/// Color hexadecimal en formato `#rrggbb` (normalizado a minúsculas).
+///
+/// Se serializa como cadena de texto. Deserializar un valor que no cumpla
+/// `#RRGGBB` falla. Cubre RF-14.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct Color(String);
+
+impl Color {
+    /// Cadena hexadecimal `#rrggbb` en minúsculas.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for Color {
+    type Err = ErrorTipo;
+
+    fn from_str(texto: &str) -> Result<Self, Self::Err> {
+        let es_valido = texto.len() == 7
+            && texto.starts_with('#')
+            && texto[1..].bytes().all(|b| b.is_ascii_hexdigit());
+        if es_valido {
+            Ok(Self(texto.to_ascii_lowercase()))
+        } else {
+            Err(ErrorTipo::ColorInvalido(texto.to_owned()))
+        }
+    }
+}
+
+impl TryFrom<String> for Color {
+    type Error = ErrorTipo;
+
+    fn try_from(texto: String) -> Result<Self, Self::Error> {
+        texto.parse()
+    }
+}
+
+impl From<Color> for String {
+    fn from(color: Color) -> String {
+        color.0
+    }
+}
+
+impl fmt::Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,5 +219,30 @@ mod tests {
 
         assert_eq!(a.dias_hasta(b), 2);
         assert_eq!(b.dias_hasta(a), -2);
+    }
+
+    #[test]
+    fn color_valido_se_normaliza_a_minusculas() {
+        let color: Color = "#1A2b3C".parse().unwrap();
+
+        assert_eq!(color.as_str(), "#1a2b3c");
+        assert_eq!(color.to_string(), "#1a2b3c");
+        assert_eq!(serde_json::to_string(&color).unwrap(), "\"#1a2b3c\"");
+        let desde_json: Color = serde_json::from_str("\"#AABBCC\"").unwrap();
+        assert_eq!(desde_json.as_str(), "#aabbcc");
+    }
+
+    #[test]
+    fn color_invalido_se_rechaza() {
+        for texto in [
+            "", "#fff", "1a2b3c", "#12345", "#1234567", "#12345g", "rojo", " #123456",
+        ] {
+            assert!(texto.parse::<Color>().is_err(), "debió rechazar {texto:?}");
+            let json = format!("\"{texto}\"");
+            assert!(
+                serde_json::from_str::<Color>(&json).is_err(),
+                "debió rechazar JSON {json}"
+            );
+        }
     }
 }

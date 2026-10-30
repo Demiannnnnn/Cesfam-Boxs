@@ -52,6 +52,8 @@ impl From<ErrorServicio> for ErrorApi {
                 CodigoError::NoEncontrado,
                 match entidad {
                     Entidad::Box => "No se encontró el box",
+                    Entidad::Etiqueta => "No se encontró la etiqueta",
+                    Entidad::Funcionario => "No se encontró el funcionario",
                     Entidad::Reserva => "No se encontró la reserva",
                 },
             ),
@@ -60,15 +62,29 @@ impl From<ErrorServicio> for ErrorApi {
                 CodigoError::BloqueOcupado,
                 MENSAJE_BLOQUE_OCUPADO,
             ),
-            ErrorServicio::NombreDuplicado => Self::new(
+            ErrorServicio::NombreDuplicado(entidad) => Self::new(
                 StatusCode::CONFLICT,
                 CodigoError::NombreDuplicado,
-                "Ya existe un box con ese nombre",
+                match entidad {
+                    Entidad::Box | Entidad::Reserva => "Ya existe un box con ese nombre",
+                    Entidad::Etiqueta => "Ya existe una etiqueta con ese nombre",
+                    Entidad::Funcionario => "Ya existe un funcionario con ese nombre",
+                },
             ),
             ErrorServicio::BoxInactivo => Self::new(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 CodigoError::BoxInactivo,
                 "Ese box está desactivado",
+            ),
+            ErrorServicio::FuncionarioInactivo => Self::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                CodigoError::FuncionarioInactivo,
+                "Ese funcionario está desactivado",
+            ),
+            ErrorServicio::EtiquetaInactiva => Self::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                CodigoError::EtiquetaInactiva,
+                "Esa etiqueta está desactivada",
             ),
             error @ (ErrorServicio::Interno(_) | ErrorServicio::TareaFallida) => {
                 tracing::error!(%error, "error interno");

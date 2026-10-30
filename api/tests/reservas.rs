@@ -2,23 +2,29 @@ mod comun;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use comun::{crear_box, enviar, pedir, router_de_prueba};
+use comun::{crear_box, crear_funcionario, enviar, pedir, router_de_prueba};
 use serde_json::{json, Value};
 
-fn reserva(box_id: i64, fecha: &str, bloque: u8) -> Value {
-    json!({ "box_id": box_id, "fecha": fecha, "bloque": bloque, "funcionario": "María Pérez" })
+fn reserva(box_id: i64, funcionario_id: i64, fecha: &str, bloque: u8) -> Value {
+    json!({
+        "box_id": box_id,
+        "fecha": fecha,
+        "bloque": bloque,
+        "funcionario_id": funcionario_id
+    })
 }
 
 #[tokio::test]
 async fn crear_y_listar_por_fecha() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 1").await;
+    let func_id = crear_funcionario(&router, "María Pérez").await;
 
     let creada = pedir(
         &router,
         "POST",
         "/reservas",
-        Some(reserva(box_id, "2026-10-01", 4)),
+        Some(reserva(box_id, func_id, "2026-10-01", 4)),
     )
     .await;
     let del_dia = pedir(&router, "GET", "/reservas?fecha=2026-10-01", None).await;
@@ -26,6 +32,8 @@ async fn crear_y_listar_por_fecha() {
 
     assert_eq!(creada.estado, StatusCode::CREATED);
     assert!(creada.cuerpo["id"].is_i64());
+    assert_eq!(creada.cuerpo["funcionario_id"], func_id);
+    assert_eq!(creada.cuerpo["funcionario"], "María Pérez");
     assert!(creada.cuerpo["creada_en"].is_string());
     assert_eq!(del_dia.cuerpo.as_array().unwrap().len(), 1);
     assert_eq!(otro_dia.cuerpo, json!([]));
@@ -35,12 +43,13 @@ async fn crear_y_listar_por_fecha() {
 async fn listar_por_rango_incluye_extremos() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 1").await;
+    let func_id = crear_funcionario(&router, "María Pérez").await;
     for fecha in ["2026-10-01", "2026-10-31", "2026-11-01"] {
         pedir(
             &router,
             "POST",
             "/reservas",
-            Some(reserva(box_id, fecha, 0)),
+            Some(reserva(box_id, func_id, fecha, 0)),
         )
         .await;
     }
@@ -76,11 +85,12 @@ async fn listar_sin_parametros_o_con_fecha_invalida_devuelve_400() {
 async fn bloque_ocupado_devuelve_409_con_mensaje_exacto() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 1").await;
+    let func_id = crear_funcionario(&router, "María Pérez").await;
     pedir(
         &router,
         "POST",
         "/reservas",
-        Some(reserva(box_id, "2026-10-01", 4)),
+        Some(reserva(box_id, func_id, "2026-10-01", 4)),
     )
     .await;
 
@@ -88,7 +98,7 @@ async fn bloque_ocupado_devuelve_409_con_mensaje_exacto() {
         &router,
         "POST",
         "/reservas",
-        Some(reserva(box_id, "2026-10-01", 4)),
+        Some(reserva(box_id, func_id, "2026-10-01", 4)),
     )
     .await;
 
@@ -103,6 +113,7 @@ async fn bloque_ocupado_devuelve_409_con_mensaje_exacto() {
 async fn reservas_simultaneas_solo_una_gana() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 1").await;
+    let func_id = crear_funcionario(&router, "María Pérez").await;
 
     let mut tareas = tokio::task::JoinSet::new();
     for _ in 0..10 {
@@ -112,7 +123,7 @@ async fn reservas_simultaneas_solo_una_gana() {
                 &router,
                 "POST",
                 "/reservas",
-                Some(reserva(box_id, "2026-10-01", 7)),
+                Some(reserva(box_id, func_id, "2026-10-01", 7)),
             )
             .await
             .estado
@@ -137,33 +148,60 @@ async fn reservas_simultaneas_solo_una_gana() {
 async fn validaciones_de_creacion() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 1").await;
-    let inactivo = crear_box(&router, "Box 2").await;
+    let box_inactivo = crear_box(&router, "Box 2").await;
+    let func_id = crear_funcionario(&router, "Ana").await;
+    let func_inactivo = crear_funcionario(&router, "Pedro").await;
     pedir(
         &router,
         "PATCH",
-        &format!("/boxes/{inactivo}"),
+        &format!("/boxes/{box_inactivo}"),
+        Some(json!({ "activo": false })),
+    )
+    .await;
+    pedir(
+        &router,
+        "PATCH",
+        &format!("/funcionarios/{func_inactivo}"),
         Some(json!({ "activo": false })),
     )
     .await;
 
     let casos = [
         (
-            json!({ "box_id": box_id, "fecha": "2026-10-01", "bloque": 1, "funcionario": "  " }),
+            json!({ "box_id": box_id, "fecha": "2026-10-01", "bloque": 1, "funcionario": "Ana" }),
             StatusCode::BAD_REQUEST,
+            "datos_invalidos",
         ),
         (
-            json!({ "box_id": box_id, "fecha": "2026-10-01", "bloque": 24, "funcionario": "Ana" }),
+            json!({ "box_id": box_id, "fecha": "2026-10-01", "bloque": 24, "funcionario_id": func_id }),
             StatusCode::BAD_REQUEST,
+            "datos_invalidos",
         ),
-        (reserva(999, "2026-10-01", 1), StatusCode::NOT_FOUND),
         (
-            reserva(inactivo, "2026-10-01", 1),
+            reserva(999, func_id, "2026-10-01", 1),
+            StatusCode::NOT_FOUND,
+            "no_encontrado",
+        ),
+        (
+            reserva(box_inactivo, func_id, "2026-10-01", 1),
             StatusCode::UNPROCESSABLE_ENTITY,
+            "box_inactivo",
+        ),
+        (
+            reserva(box_id, 999, "2026-10-01", 1),
+            StatusCode::NOT_FOUND,
+            "no_encontrado",
+        ),
+        (
+            reserva(box_id, func_inactivo, "2026-10-01", 1),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "funcionario_inactivo",
         ),
     ];
-    for (cuerpo, esperado) in casos {
+    for (cuerpo, esperado, codigo) in casos {
         let r = pedir(&router, "POST", "/reservas", Some(cuerpo.clone())).await;
         assert_eq!(r.estado, esperado, "{cuerpo}");
+        assert_eq!(r.cuerpo["codigo"], codigo, "{cuerpo}");
         assert!(r.cuerpo["mensaje"].is_string());
     }
 }
@@ -188,11 +226,12 @@ async fn json_malformado_devuelve_400_con_cuerpo_estandar() {
 async fn cancelar_dos_veces_devuelve_204_y_luego_404() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 1").await;
+    let func_id = crear_funcionario(&router, "María Pérez").await;
     let creada = pedir(
         &router,
         "POST",
         "/reservas",
-        Some(reserva(box_id, "2026-10-01", 4)),
+        Some(reserva(box_id, func_id, "2026-10-01", 4)),
     )
     .await;
     let uri = format!("/reservas/{}", creada.cuerpo["id"]);
@@ -205,23 +244,50 @@ async fn cancelar_dos_veces_devuelve_204_y_luego_404() {
     assert_eq!(segunda.cuerpo["codigo"], "no_encontrado");
 }
 
-fn lote(box_id: i64, fechas: &[&str], desde: u8, hasta: u8, omitir: bool) -> Value {
+fn lote(
+    box_id: i64,
+    funcionario_id: i64,
+    fechas: &[&str],
+    desde: u8,
+    hasta: u8,
+    omitir: bool,
+) -> Value {
     json!({
         "box_id": box_id, "fechas": fechas, "desde": desde, "hasta": hasta,
-        "funcionario": "E.U. Olivia", "omitir_ocupados": omitir
+        "funcionario_id": funcionario_id, "omitir_ocupados": omitir
     })
 }
 
 #[tokio::test]
-async fn lote_crea_la_serie_y_devuelve_201_con_grupo() {
+async fn lote_crea_la_serie_y_devuelve_201_con_grupo_y_rechaza_funcionario_texto() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 17").await;
+    let func_id = crear_funcionario(&router, "E.U. Olivia").await;
+
+    let con_texto = pedir(
+        &router,
+        "POST",
+        "/reservas/lote",
+        Some(json!({
+            "box_id": box_id, "fechas": ["2026-10-05"], "desde": 0, "hasta": 1,
+            "funcionario": "E.U. Olivia"
+        })),
+    )
+    .await;
+    assert_eq!(con_texto.estado, StatusCode::BAD_REQUEST);
 
     let r = pedir(
         &router,
         "POST",
         "/reservas/lote",
-        Some(lote(box_id, &["2026-10-05", "2026-10-12"], 0, 11, false)),
+        Some(lote(
+            box_id,
+            func_id,
+            &["2026-10-05", "2026-10-12"],
+            0,
+            11,
+            false,
+        )),
     )
     .await;
 
@@ -229,6 +295,8 @@ async fn lote_crea_la_serie_y_devuelve_201_con_grupo() {
     let creadas = r.cuerpo["creadas"].as_array().unwrap();
     assert_eq!(creadas.len(), 24);
     assert_eq!(creadas[0]["grupo"], creadas[23]["grupo"]);
+    assert_eq!(creadas[0]["funcionario_id"], func_id);
+    assert_eq!(creadas[0]["funcionario"], "E.U. Olivia");
     assert_eq!(r.cuerpo["omitidos"], json!([]));
 }
 
@@ -236,11 +304,12 @@ async fn lote_crea_la_serie_y_devuelve_201_con_grupo() {
 async fn lote_con_conflicto_devuelve_409_y_con_omitir_informa_omitidos() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 17").await;
+    let func_id = crear_funcionario(&router, "E.U. Olivia").await;
     pedir(
         &router,
         "POST",
         "/reservas",
-        Some(reserva(box_id, "2026-10-12", 3)),
+        Some(reserva(box_id, func_id, "2026-10-12", 3)),
     )
     .await;
 
@@ -248,14 +317,28 @@ async fn lote_con_conflicto_devuelve_409_y_con_omitir_informa_omitidos() {
         &router,
         "POST",
         "/reservas/lote",
-        Some(lote(box_id, &["2026-10-05", "2026-10-12"], 0, 5, false)),
+        Some(lote(
+            box_id,
+            func_id,
+            &["2026-10-05", "2026-10-12"],
+            0,
+            5,
+            false,
+        )),
     )
     .await;
     let solo_libres = pedir(
         &router,
         "POST",
         "/reservas/lote",
-        Some(lote(box_id, &["2026-10-05", "2026-10-12"], 0, 5, true)),
+        Some(lote(
+            box_id,
+            func_id,
+            &["2026-10-05", "2026-10-12"],
+            0,
+            5,
+            true,
+        )),
     )
     .await;
 
@@ -273,12 +356,14 @@ async fn lote_con_conflicto_devuelve_409_y_con_omitir_informa_omitidos() {
 async fn cancelar_grupo_desde_fecha_y_luego_404() {
     let router = router_de_prueba();
     let box_id = crear_box(&router, "Box 17").await;
+    let func_id = crear_funcionario(&router, "E.U. Olivia").await;
     let creado = pedir(
         &router,
         "POST",
         "/reservas/lote",
         Some(lote(
             box_id,
+            func_id,
             &["2026-10-05", "2026-10-12", "2026-10-19"],
             0,
             1,
@@ -297,26 +382,4 @@ async fn cancelar_grupo_desde_fecha_y_luego_404() {
     assert_eq!(primera.cuerpo, json!({ "canceladas": 4 }));
     assert_eq!(segunda.estado, StatusCode::NOT_FOUND);
     assert_eq!(sin_desde.estado, StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn funcionarios_lista_nombres_recientes_sin_repetir() {
-    let router = router_de_prueba();
-    let box_id = crear_box(&router, "Box 17").await;
-    let hoy = chrono::Local::now().date_naive();
-    for bloque in [0, 1] {
-        let fecha = hoy.format("%Y-%m-%d").to_string();
-        pedir(
-            &router,
-            "POST",
-            "/reservas",
-            Some(reserva(box_id, &fecha, bloque)),
-        )
-        .await;
-    }
-
-    let r = pedir(&router, "GET", "/funcionarios", None).await;
-
-    assert_eq!(r.estado, StatusCode::OK);
-    assert_eq!(r.cuerpo, json!(["María Pérez"]));
 }

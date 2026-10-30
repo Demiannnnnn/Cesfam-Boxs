@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 2026-10-01.
+Última actualización: 2026-10-30.
 
 ## Resumen
 
@@ -8,10 +8,12 @@
 |---|---|
 | 0 — Terreno | bloqueada (requiere visita; supuestos del `.docx` en uso) |
 | 1 — Proyecto base | completada (T-1.1, T-1.2, T-1.3) |
-| 2 — API | completada: 64 tests + `api/scripts/humo.sh` OK |
+| 2 — API | completada: tests + `api/scripts/humo.sh` OK |
 | 3 — App | implementada: 23 tests Rust + `tsc` OK; verificada a mano la grilla conectada por localhost. Falta validar modales/refresco/broadcast a mano (ver cada T-3.x) |
 | 4 — Instalación | pendiente |
 | 5 — Entrega | borradores de manual y guía en `docs/` |
+| 6 — Grilla agenda, rangos y semana | implementada (ADR-014, ADR-015, ADR-016) |
+| 7 — Funcionarios, etiquetas y búsqueda | en curso: T-7.1 completada (API de funcionarios y etiquetas, migración v3); pendientes T-7.2 y T-7.3 |
 
 ## Ramas activas
 
@@ -20,6 +22,7 @@
 | `dev/documentacion-base` | README, AGENTS.md, docs/, .ai-context/, tasks/ |
 | `dev/fase-1-2-api` | workspace, crate shared, API completa (sobre `dev/documentacion-base`) |
 | `dev/fase-3-app` | app Tauri completa (sobre `dev/fase-1-2-api`) |
+| `dev/fase-7-funcionarios-etiquetas` | fase 7 (ADR-017): T-7.1 completada |
 
 ## Supuestos vigentes (hasta cerrar fase 0)
 

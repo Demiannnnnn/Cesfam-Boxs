@@ -1,4 +1,4 @@
-//! SQL de la tabla `reserva` (RF-03, RF-04, RF-05).
+//! SQL de la tabla `reserva` (RF-03, RF-04, RF-05, RF-13).
 
 use gestion_box_shared::{Bloque, Fecha, Reserva};
 use rusqlite::types::Type;
@@ -7,18 +7,21 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use super::{es_violacion_unique, ErrorRepositorio};
 
 const SQL_LISTAR_RANGO: &str =
-    "SELECT id, box_id, fecha, bloque, funcionario, motivo, creada_en, grupo FROM reserva
-     WHERE fecha BETWEEN ?1 AND ?2
-     ORDER BY fecha, bloque, box_id";
-const SQL_OBTENER: &str = "SELECT id, box_id, fecha, bloque, funcionario, motivo, creada_en, grupo
-     FROM reserva WHERE id = ?1";
+    "SELECT r.id, r.box_id, r.fecha, r.bloque, COALESCE(f.nombre, r.funcionario),
+            r.motivo, r.creada_en, r.grupo, r.funcionario_id
+     FROM reserva r
+     LEFT JOIN funcionario f ON f.id = r.funcionario_id
+     WHERE r.fecha BETWEEN ?1 AND ?2
+     ORDER BY r.fecha, r.bloque, r.box_id";
+const SQL_OBTENER: &str =
+    "SELECT r.id, r.box_id, r.fecha, r.bloque, COALESCE(f.nombre, r.funcionario),
+            r.motivo, r.creada_en, r.grupo, r.funcionario_id
+     FROM reserva r
+     LEFT JOIN funcionario f ON f.id = r.funcionario_id
+     WHERE r.id = ?1";
 const SQL_CREAR: &str =
-    "INSERT INTO reserva (box_id, fecha, bloque, funcionario, motivo, creada_en, grupo)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
-const SQL_FUNCIONARIOS: &str = "SELECT funcionario FROM reserva WHERE fecha >= ?1
-     GROUP BY funcionario COLLATE NOCASE
-     ORDER BY MAX(fecha) DESC, COUNT(*) DESC
-     LIMIT ?2";
+    "INSERT INTO reserva (box_id, fecha, bloque, funcionario, funcionario_id, motivo, creada_en, grupo)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 const SQL_FIJAR_GRUPO: &str = "UPDATE reserva SET grupo = ?2 WHERE id = ?1";
 const SQL_ELIMINAR: &str = "DELETE FROM reserva WHERE id = ?1";
 const SQL_ELIMINAR_GRUPO: &str = "DELETE FROM reserva WHERE grupo = ?1 AND fecha >= ?2";
@@ -29,6 +32,7 @@ pub struct ReservaValida {
     pub box_id: i64,
     pub fecha: Fecha,
     pub bloque: Bloque,
+    pub funcionario_id: i64,
     pub funcionario: String,
     pub motivo: Option<String>,
     pub creada_en: String,
@@ -51,6 +55,7 @@ fn fila_a_reserva(fila: &Row<'_>) -> rusqlite::Result<Reserva> {
         motivo: fila.get(5)?,
         creada_en: fila.get(6)?,
         grupo: fila.get(7)?,
+        funcionario_id: fila.get(8)?,
     })
 }
 
@@ -94,6 +99,7 @@ pub fn crear(conn: &Connection, nueva: &ReservaValida) -> Result<Reserva, ErrorR
             nueva.fecha.to_string(),
             nueva.bloque.valor(),
             nueva.funcionario,
+            nueva.funcionario_id,
             nueva.motivo,
             nueva.creada_en,
             nueva.grupo,
@@ -106,21 +112,6 @@ pub fn crear(conn: &Connection, nueva: &ReservaValida) -> Result<Reserva, ErrorR
             }
         })?;
     obtener(conn, conn.last_insert_rowid())
-}
-
-/// Nombres de funcionarios con reservas desde `desde`, sin repetir (sin distinguir
-/// mayúsculas), los más recientes primero. Alimenta el autocompletado.
-pub fn funcionarios_recientes(
-    conn: &Connection,
-    desde: Fecha,
-    limite: usize,
-) -> Result<Vec<String>, ErrorRepositorio> {
-    let limite = i64::try_from(limite).unwrap_or(i64::MAX);
-    let mut sentencia = conn.prepare_cached(SQL_FUNCIONARIOS)?;
-    let nombres = sentencia
-        .query_map(params![desde.to_string(), limite], |fila| fila.get(0))?
-        .collect::<Result<_, _>>()?;
-    Ok(nombres)
 }
 
 /// Asigna `grupo` a una reserva ya creada (la primera de un lote da su id al grupo).
@@ -158,13 +149,17 @@ pub fn eliminar(conn: &Connection, id: i64) -> Result<(), ErrorRepositorio> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{db, repositorio::boxes};
+    use crate::{
+        db,
+        repositorio::{boxes, funcionarios},
+    };
 
     fn reserva(box_id: i64, fecha: &str, bloque: u8) -> ReservaValida {
         ReservaValida {
             box_id,
             fecha: fecha.parse().unwrap(),
             bloque: Bloque::new(bloque).unwrap(),
+            funcionario_id: 1,
             funcionario: "Ana".into(),
             motivo: None,
             creada_en: "2026-09-30T10:00:00".into(),
@@ -174,8 +169,9 @@ mod tests {
 
     fn preparar() -> Connection {
         let conn = db::abrir_en_memoria().unwrap();
-        boxes::crear(&conn, "Box 1").unwrap();
-        boxes::crear(&conn, "Box 2").unwrap();
+        boxes::crear(&conn, "Box 1", None).unwrap();
+        boxes::crear(&conn, "Box 2", None).unwrap();
+        funcionarios::crear(&conn, "Ana", None).unwrap();
         conn
     }
 
@@ -187,6 +183,24 @@ mod tests {
 
         assert_eq!(obtener(&conn, creada.id).unwrap(), creada);
         assert_eq!(creada.funcionario, "Ana");
+        assert_eq!(creada.funcionario_id, Some(1));
+    }
+
+    #[test]
+    fn renombrar_funcionario_se_refleja_al_leer_reservas() {
+        let conn = preparar();
+        let creada = crear(&conn, &reserva(1, "2026-10-01", 4)).unwrap();
+
+        funcionarios::actualizar(&conn, 1, Some("Ana Pérez"), None, None).unwrap();
+
+        assert_eq!(obtener(&conn, creada.id).unwrap().funcionario, "Ana Pérez");
+        let en_rango = listar_por_rango(
+            &conn,
+            "2026-10-01".parse().unwrap(),
+            "2026-10-01".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(en_rango[0].funcionario, "Ana Pérez");
     }
 
     #[test]
@@ -250,25 +264,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(quedan.len(), 2, "quedan la del 01 del grupo y la suelta");
-    }
-
-    #[test]
-    fn funcionarios_sin_repetir_y_mas_recientes_primero() {
-        let conn = preparar();
-        let con_nombre = |nombre: &str, fecha: &str, bloque: u8| ReservaValida {
-            funcionario: nombre.into(),
-            ..reserva(1, fecha, bloque)
-        };
-        crear(&conn, &con_nombre("Ana", "2026-10-01", 0)).unwrap();
-        crear(&conn, &con_nombre("ana", "2026-10-02", 0)).unwrap();
-        crear(&conn, &con_nombre("Berta", "2026-10-05", 0)).unwrap();
-        crear(&conn, &con_nombre("Vieja", "2026-01-01", 0)).unwrap();
-
-        let nombres = funcionarios_recientes(&conn, "2026-09-01".parse().unwrap(), 10).unwrap();
-
-        assert_eq!(nombres.len(), 2);
-        assert_eq!(nombres[0], "Berta");
-        assert!(nombres[1].eq_ignore_ascii_case("ana"));
     }
 
     #[test]

@@ -4,7 +4,10 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use gestion_box_shared::{CambiosBox, EstadoSalud, Fecha, NuevaReserva, NuevoBox, NuevoLote};
+use gestion_box_shared::{
+    CambiosBox, CambiosEtiqueta, CambiosFuncionario, EstadoSalud, Fecha, NuevaEtiqueta,
+    NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote,
+};
 use serde::Deserialize;
 
 use super::extractores::{JsonApi, PathApi, QueryApi};
@@ -26,9 +29,9 @@ pub async fn salud(State(estado): State<AppState>) -> Resultado<Json<EstadoSalud
     }))
 }
 
-/// Parámetros de `GET /boxes`.
+/// Parámetros de listados con filtro de estado (`GET /boxes`, `GET /etiquetas`, `GET /funcionarios`).
 #[derive(Debug, Default, Deserialize)]
-pub struct ConsultaBoxes {
+pub struct ConsultaIncluirInactivos {
     #[serde(default)]
     incluir_inactivos: bool,
 }
@@ -36,7 +39,7 @@ pub struct ConsultaBoxes {
 /// `GET /boxes` (RF-01, RF-06).
 pub async fn listar_boxes(
     State(estado): State<AppState>,
-    QueryApi(consulta): QueryApi<ConsultaBoxes>,
+    QueryApi(consulta): QueryApi<ConsultaIncluirInactivos>,
 ) -> Resultado<impl IntoResponse> {
     let boxes = estado
         .con_db(move |conn| servicio::listar_boxes(conn, consulta.incluir_inactivos))
@@ -44,7 +47,7 @@ pub async fn listar_boxes(
     Ok(Json(boxes))
 }
 
-/// `POST /boxes` (RF-06).
+/// `POST /boxes` (RF-06, RF-14).
 pub async fn crear_box(
     State(estado): State<AppState>,
     JsonApi(nuevo): JsonApi<NuevoBox>,
@@ -55,7 +58,7 @@ pub async fn crear_box(
     Ok((StatusCode::CREATED, Json(creado)))
 }
 
-/// `PATCH /boxes/{id}` (RF-06).
+/// `PATCH /boxes/{id}` (RF-06, RF-14).
 pub async fn actualizar_box(
     State(estado): State<AppState>,
     PathApi(id): PathApi<i64>,
@@ -63,6 +66,74 @@ pub async fn actualizar_box(
 ) -> Resultado<impl IntoResponse> {
     let actualizado = estado
         .con_db(move |conn| servicio::actualizar_box(conn, id, &cambios))
+        .await?;
+    Ok(Json(actualizado))
+}
+
+/// `GET /etiquetas` (RF-14).
+pub async fn listar_etiquetas(
+    State(estado): State<AppState>,
+    QueryApi(consulta): QueryApi<ConsultaIncluirInactivos>,
+) -> Resultado<impl IntoResponse> {
+    let etiquetas = estado
+        .con_db(move |conn| servicio::listar_etiquetas(conn, consulta.incluir_inactivos))
+        .await?;
+    Ok(Json(etiquetas))
+}
+
+/// `POST /etiquetas` (RF-14).
+pub async fn crear_etiqueta(
+    State(estado): State<AppState>,
+    JsonApi(nueva): JsonApi<NuevaEtiqueta>,
+) -> Resultado<impl IntoResponse> {
+    let creada = estado
+        .con_db(move |conn| servicio::crear_etiqueta(conn, &nueva))
+        .await?;
+    Ok((StatusCode::CREATED, Json(creada)))
+}
+
+/// `PATCH /etiquetas/{id}` (RF-14).
+pub async fn actualizar_etiqueta(
+    State(estado): State<AppState>,
+    PathApi(id): PathApi<i64>,
+    JsonApi(cambios): JsonApi<CambiosEtiqueta>,
+) -> Resultado<impl IntoResponse> {
+    let actualizada = estado
+        .con_db(move |conn| servicio::actualizar_etiqueta(conn, id, &cambios))
+        .await?;
+    Ok(Json(actualizada))
+}
+
+/// `GET /funcionarios` (RF-13).
+pub async fn listar_funcionarios(
+    State(estado): State<AppState>,
+    QueryApi(consulta): QueryApi<ConsultaIncluirInactivos>,
+) -> Resultado<impl IntoResponse> {
+    let funcionarios = estado
+        .con_db(move |conn| servicio::listar_funcionarios(conn, consulta.incluir_inactivos))
+        .await?;
+    Ok(Json(funcionarios))
+}
+
+/// `POST /funcionarios` (RF-13, RF-14).
+pub async fn crear_funcionario(
+    State(estado): State<AppState>,
+    JsonApi(nuevo): JsonApi<NuevoFuncionario>,
+) -> Resultado<impl IntoResponse> {
+    let creado = estado
+        .con_db(move |conn| servicio::crear_funcionario(conn, &nuevo))
+        .await?;
+    Ok((StatusCode::CREATED, Json(creado)))
+}
+
+/// `PATCH /funcionarios/{id}` (RF-13, RF-14).
+pub async fn actualizar_funcionario(
+    State(estado): State<AppState>,
+    PathApi(id): PathApi<i64>,
+    JsonApi(cambios): JsonApi<CambiosFuncionario>,
+) -> Resultado<impl IntoResponse> {
+    let actualizado = estado
+        .con_db(move |conn| servicio::actualizar_funcionario(conn, id, &cambios))
         .await?;
     Ok(Json(actualizado))
 }
@@ -78,16 +149,7 @@ pub async fn listar_reservas(
     Ok(Json(reservas))
 }
 
-/// `GET /funcionarios`: nombres recientes para autocompletar.
-pub async fn listar_funcionarios(State(estado): State<AppState>) -> Resultado<impl IntoResponse> {
-    let hoy = Fecha::hoy();
-    let nombres = estado
-        .con_db(move |conn| servicio::listar_funcionarios(conn, hoy))
-        .await?;
-    Ok(Json(nombres))
-}
-
-/// `POST /reservas` (RF-03, RF-05).
+/// `POST /reservas` (RF-03, RF-05, RF-13).
 pub async fn crear_reserva(
     State(estado): State<AppState>,
     JsonApi(nueva): JsonApi<NuevaReserva>,
@@ -99,7 +161,7 @@ pub async fn crear_reserva(
     Ok((StatusCode::CREATED, Json(creada)))
 }
 
-/// `POST /reservas/lote`: rango de bloques en una o varias fechas (RF-03, RF-05).
+/// `POST /reservas/lote`: rango de bloques en una o varias fechas (RF-03, RF-05, RF-13).
 pub async fn crear_lote(
     State(estado): State<AppState>,
     JsonApi(lote): JsonApi<NuevoLote>,

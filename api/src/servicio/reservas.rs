@@ -1,72 +1,17 @@
-//! Reglas de negocio entre HTTP y repositorio (RF-03 – RF-06, RF-12).
-//!
-//! Funciones síncronas que reciben la conexión: la capa HTTP decide en qué hilo
-//! se ejecutan. Aquí se normalizan textos y se validan reglas que el esquema no expresa.
+//! Reglas de negocio de reservas y lotes (RF-01, RF-03 – RF-05, RF-12, RF-13).
 
 use chrono::NaiveDateTime;
 use gestion_box_shared::{
-    BloqueOmitido, BoxAtencion, CambiosBox, Fecha, NuevaReserva, NuevoBox, NuevoLote, Reserva,
-    ResultadoCancelacion, ResultadoLote,
+    Bloque, BloqueOmitido, Fecha, NuevaReserva, NuevoLote, Reserva, ResultadoCancelacion,
+    ResultadoLote,
 };
 use rusqlite::Connection;
 use serde::Deserialize;
 
-use gestion_box_shared::Bloque;
-
+use super::catalogos::{exigir_box_activo, exigir_funcionario_activo};
+use super::{texto_opcional, Entidad, ErrorServicio, MAX_DIAS_RANGO, MAX_FECHAS_LOTE, MAX_MOTIVO};
 use crate::repositorio::reservas::ReservaValida;
-use crate::repositorio::{boxes, reservas, ErrorRepositorio};
-
-/// Largo máximo del nombre de un box.
-pub const MAX_NOMBRE_BOX: usize = 40;
-/// Largo máximo del nombre del funcionario.
-pub const MAX_FUNCIONARIO: usize = 80;
-/// Largo máximo del motivo.
-pub const MAX_MOTIVO: usize = 200;
-/// Máximo de días que abarca una consulta por rango (exportación).
-pub const MAX_DIAS_RANGO: i64 = 366;
-/// Días hacia atrás que se miran para sugerir nombres de funcionarios.
-pub const DIAS_FUNCIONARIOS: i64 = 180;
-/// Máximo de nombres sugeridos.
-pub const MAX_FUNCIONARIOS: usize = 300;
-/// Máximo de fechas en un lote: alcanza para todos los días hábiles de dos meses.
-pub const MAX_FECHAS_LOTE: usize = 46;
-
-/// Entidad a la que se refiere un "no encontrado", para un mensaje claro.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Entidad {
-    Box,
-    Reserva,
-}
-
-/// Error de negocio. La capa HTTP lo traduce a código y mensaje.
-#[derive(Debug, thiserror::Error)]
-pub enum ErrorServicio {
-    #[error("{0}")]
-    DatosInvalidos(String),
-    #[error("no encontrado: {0:?}")]
-    NoEncontrado(Entidad),
-    #[error("bloque ocupado")]
-    BloqueOcupado,
-    #[error("nombre de box duplicado")]
-    NombreDuplicado,
-    #[error("box inactivo")]
-    BoxInactivo,
-    #[error("error de base de datos: {0}")]
-    Interno(#[from] rusqlite::Error),
-    #[error("la operación terminó inesperadamente")]
-    TareaFallida,
-}
-
-impl ErrorServicio {
-    fn desde_repositorio(error: ErrorRepositorio, entidad: Entidad) -> Self {
-        match error {
-            ErrorRepositorio::BloqueOcupado => Self::BloqueOcupado,
-            ErrorRepositorio::NombreDuplicado => Self::NombreDuplicado,
-            ErrorRepositorio::NoEncontrado => Self::NoEncontrado(entidad),
-            ErrorRepositorio::Sqlite(e) => Self::Interno(e),
-        }
-    }
-}
+use crate::repositorio::{reservas, ErrorRepositorio};
 
 /// Parámetros de `GET /reservas`: `fecha`, o bien `desde` + `hasta`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
@@ -75,74 +20,6 @@ pub struct ConsultaReservas {
     pub fecha: Option<Fecha>,
     pub desde: Option<Fecha>,
     pub hasta: Option<Fecha>,
-}
-
-/// Recorta espacios y verifica largo `1..=max` en caracteres.
-fn texto_obligatorio(valor: &str, campo: &str, max: usize) -> Result<String, ErrorServicio> {
-    let limpio = valor.trim();
-    if limpio.is_empty() {
-        return Err(ErrorServicio::DatosInvalidos(format!(
-            "El campo {campo} es obligatorio"
-        )));
-    }
-    if limpio.chars().count() > max {
-        return Err(ErrorServicio::DatosInvalidos(format!(
-            "El campo {campo} admite como máximo {max} caracteres"
-        )));
-    }
-    Ok(limpio.to_owned())
-}
-
-/// Recorta espacios; vacío → `None`; verifica largo máximo.
-fn texto_opcional(
-    valor: Option<&str>,
-    campo: &str,
-    max: usize,
-) -> Result<Option<String>, ErrorServicio> {
-    match valor.map(str::trim) {
-        None | Some("") => Ok(None),
-        Some(limpio) => texto_obligatorio(limpio, campo, max).map(Some),
-    }
-}
-
-/// Lista boxes (RF-01, RF-06).
-pub fn listar_boxes(
-    conn: &Connection,
-    incluir_inactivos: bool,
-) -> Result<Vec<BoxAtencion>, ErrorServicio> {
-    boxes::listar(conn, incluir_inactivos)
-        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Box))
-}
-
-/// Crea un box (RF-06).
-pub fn crear_box(conn: &Connection, nuevo: &NuevoBox) -> Result<BoxAtencion, ErrorServicio> {
-    let nombre = texto_obligatorio(&nuevo.nombre, "nombre", MAX_NOMBRE_BOX)?;
-    let creado = boxes::crear(conn, &nombre)
-        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Box))?;
-    tracing::info!(id = creado.id, nombre = %creado.nombre, "box creado");
-    Ok(creado)
-}
-
-/// Renombra y/o activa/desactiva un box (RF-06). Los boxes nunca se borran (ADR-006).
-pub fn actualizar_box(
-    conn: &Connection,
-    id: i64,
-    cambios: &CambiosBox,
-) -> Result<BoxAtencion, ErrorServicio> {
-    let nombre = cambios
-        .nombre
-        .as_deref()
-        .map(|n| texto_obligatorio(n, "nombre", MAX_NOMBRE_BOX))
-        .transpose()?;
-    let actualizado = boxes::actualizar(conn, id, nombre.as_deref(), cambios.activo)
-        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Box))?;
-    tracing::info!(
-        id,
-        nombre = %actualizado.nombre,
-        activo = actualizado.activo,
-        "box actualizado"
-    );
-    Ok(actualizado)
 }
 
 /// Lista reservas de un día o de un rango (RF-01, RF-12).
@@ -184,36 +61,27 @@ pub fn listar_reservas(
         .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Reserva))
 }
 
-/// Funcionarios que reservaron en los últimos [`DIAS_FUNCIONARIOS`] días, para que la
-/// app sugiera nombres ya escritos y no se mezclen "Veronica" y "Verónica".
-pub fn listar_funcionarios(conn: &Connection, hoy: Fecha) -> Result<Vec<String>, ErrorServicio> {
-    let desde = hoy
-        .como_naive()
-        .checked_sub_signed(chrono::Duration::days(DIAS_FUNCIONARIOS))
-        .map_or(hoy, Fecha::new);
-    reservas::funcionarios_recientes(conn, desde, MAX_FUNCIONARIOS)
-        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Reserva))
-}
-
-/// Crea una reserva (RF-03). El box debe existir y estar activo.
+/// Crea una reserva (RF-03, RF-13). El box y el funcionario deben existir y estar activos.
 ///
 /// # Errores
 /// - [`ErrorServicio::BloqueOcupado`] si otro la tomó antes (RF-05).
-/// - [`ErrorServicio::BoxInactivo`], [`ErrorServicio::NoEncontrado`], [`ErrorServicio::DatosInvalidos`].
+/// - [`ErrorServicio::BoxInactivo`], [`ErrorServicio::FuncionarioInactivo`],
+///   [`ErrorServicio::NoEncontrado`], [`ErrorServicio::DatosInvalidos`].
 pub fn crear_reserva(
     conn: &Connection,
     nueva: &NuevaReserva,
     ahora: NaiveDateTime,
 ) -> Result<Reserva, ErrorServicio> {
-    let funcionario = texto_obligatorio(&nueva.funcionario, "funcionario", MAX_FUNCIONARIO)?;
     let motivo = texto_opcional(nueva.motivo.as_deref(), "motivo", MAX_MOTIVO)?;
     exigir_box_activo(conn, nueva.box_id)?;
+    let funcionario = exigir_funcionario_activo(conn, nueva.funcionario_id)?;
 
     let valida = ReservaValida {
         box_id: nueva.box_id,
         fecha: nueva.fecha,
         bloque: nueva.bloque,
-        funcionario,
+        funcionario_id: funcionario.id,
+        funcionario: funcionario.nombre,
         motivo,
         creada_en: marca_de_tiempo(ahora),
         grupo: None,
@@ -222,6 +90,7 @@ pub fn crear_reserva(
     tracing::info!(
         id = reserva.id,
         box_id = reserva.box_id,
+        funcionario_id = funcionario.id,
         fecha = %reserva.fecha,
         bloque = reserva.bloque.valor(),
         "reserva creada"
@@ -239,15 +108,15 @@ pub fn crear_reserva(
 /// # Errores
 /// - [`ErrorServicio::BloqueOcupado`] si hay un bloque tomado (todo o nada) o si no
 ///   quedó ningún bloque libre.
-/// - [`ErrorServicio::BoxInactivo`], [`ErrorServicio::NoEncontrado`], [`ErrorServicio::DatosInvalidos`].
+/// - [`ErrorServicio::BoxInactivo`], [`ErrorServicio::FuncionarioInactivo`],
+///   [`ErrorServicio::NoEncontrado`], [`ErrorServicio::DatosInvalidos`].
 ///
-/// Cubre RF-03 y RF-05.
+/// Cubre RF-03, RF-05 y RF-13.
 pub fn crear_lote(
     conn: &Connection,
     lote: &NuevoLote,
     ahora: NaiveDateTime,
 ) -> Result<ResultadoLote, ErrorServicio> {
-    let funcionario = texto_obligatorio(&lote.funcionario, "funcionario", MAX_FUNCIONARIO)?;
     let motivo = texto_opcional(lote.motivo.as_deref(), "motivo", MAX_MOTIVO)?;
     if lote.desde > lote.hasta {
         return Err(ErrorServicio::DatosInvalidos(
@@ -263,6 +132,7 @@ pub fn crear_lote(
         )));
     }
     exigir_box_activo(conn, lote.box_id)?;
+    let funcionario = exigir_funcionario_activo(conn, lote.funcionario_id)?;
 
     // `unchecked_transaction` porque la conexión llega como `&Connection`; el `Mutex`
     // de `AppState` ya garantiza que nadie más la usa mientras dura la transacción.
@@ -278,7 +148,8 @@ pub fn crear_lote(
                 box_id: lote.box_id,
                 fecha,
                 bloque,
-                funcionario: funcionario.clone(),
+                funcionario_id: funcionario.id,
+                funcionario: funcionario.nombre.clone(),
                 motivo: motivo.clone(),
                 creada_en: creada_en.clone(),
                 grupo: creadas.first().map(|r| r.id),
@@ -305,6 +176,7 @@ pub fn crear_lote(
     tracing::info!(
         grupo,
         box_id = lote.box_id,
+        funcionario_id = funcionario.id,
         creadas = creadas.len(),
         omitidos = omitidos.len(),
         "lote de reservas creado"
@@ -314,16 +186,6 @@ pub fn crear_lote(
 
 fn marca_de_tiempo(ahora: NaiveDateTime) -> String {
     ahora.format("%Y-%m-%dT%H:%M:%S").to_string()
-}
-
-fn exigir_box_activo(conn: &Connection, box_id: i64) -> Result<(), ErrorServicio> {
-    let box_destino = boxes::obtener(conn, box_id)
-        .map_err(|e| ErrorServicio::desde_repositorio(e, Entidad::Box))?;
-    if box_destino.activo {
-        Ok(())
-    } else {
-        Err(ErrorServicio::BoxInactivo)
-    }
 }
 
 /// Inserta y registra el rechazo por bloque ocupado (RF-05).
@@ -375,27 +237,38 @@ pub fn cancelar_reserva(conn: &Connection, id: i64) -> Result<(), ErrorServicio>
 mod tests {
     use super::*;
     use crate::db;
+    use crate::servicio::{actualizar_box, actualizar_funcionario, crear_box, crear_funcionario};
+    use gestion_box_shared::{CambiosBox, CambiosFuncionario, NuevoBox, NuevoFuncionario};
 
     fn ahora() -> NaiveDateTime {
         "2026-09-30T10:00:00".parse().unwrap()
     }
 
-    fn nueva(box_id: i64, funcionario: &str, motivo: Option<&str>) -> NuevaReserva {
+    fn nueva(box_id: i64, funcionario_id: i64, motivo: Option<&str>) -> NuevaReserva {
         NuevaReserva {
             box_id,
             fecha: "2026-10-01".parse().unwrap(),
             bloque: Bloque::new(2).unwrap(),
-            funcionario: funcionario.into(),
+            funcionario_id,
             motivo: motivo.map(Into::into),
         }
     }
 
-    fn con_box() -> Connection {
+    fn con_box_y_funcionario() -> Connection {
         let conn = db::abrir_en_memoria().unwrap();
         crear_box(
             &conn,
             &NuevoBox {
                 nombre: "Box 1".into(),
+                etiqueta_id: None,
+            },
+        )
+        .unwrap();
+        crear_funcionario(
+            &conn,
+            &NuevoFuncionario {
+                nombre: "  Ana  ".into(),
+                etiqueta_id: None,
             },
         )
         .unwrap();
@@ -404,53 +277,62 @@ mod tests {
 
     #[test]
     fn normaliza_funcionario_y_motivo_vacio() {
-        let conn = con_box();
+        let conn = con_box_y_funcionario();
 
-        let reserva = crear_reserva(&conn, &nueva(1, "  Ana  ", Some("   ")), ahora()).unwrap();
+        let reserva = crear_reserva(&conn, &nueva(1, 1, Some("   ")), ahora()).unwrap();
 
         assert_eq!(reserva.funcionario, "Ana");
+        assert_eq!(reserva.funcionario_id, Some(1));
         assert_eq!(reserva.motivo, None);
         assert_eq!(reserva.creada_en, "2026-09-30T10:00:00");
     }
 
     #[test]
-    fn funcionario_vacio_es_dato_invalido() {
-        let conn = con_box();
+    fn funcionario_inexistente_o_inactivo_no_reserva() {
+        let conn = con_box_y_funcionario();
+        assert!(matches!(
+            crear_reserva(&conn, &nueva(1, 99, None), ahora()),
+            Err(ErrorServicio::NoEncontrado(Entidad::Funcionario))
+        ));
 
-        let error = crear_reserva(&conn, &nueva(1, "   ", None), ahora()).unwrap_err();
-
-        assert!(matches!(error, ErrorServicio::DatosInvalidos(_)));
-    }
-
-    #[test]
-    fn funcionario_demasiado_largo_es_dato_invalido() {
-        let conn = con_box();
-        let largo = "ñ".repeat(MAX_FUNCIONARIO + 1);
-
-        let error = crear_reserva(&conn, &nueva(1, &largo, None), ahora()).unwrap_err();
-
-        assert!(matches!(error, ErrorServicio::DatosInvalidos(_)));
+        actualizar_funcionario(
+            &conn,
+            1,
+            &CambiosFuncionario {
+                activo: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            crear_reserva(&conn, &nueva(1, 1, None), ahora()),
+            Err(ErrorServicio::FuncionarioInactivo)
+        ));
     }
 
     #[test]
     fn box_inactivo_no_se_reserva() {
-        let conn = con_box();
-        let cambios = CambiosBox {
-            activo: Some(false),
-            ..Default::default()
-        };
-        actualizar_box(&conn, 1, &cambios).unwrap();
+        let conn = con_box_y_funcionario();
+        actualizar_box(
+            &conn,
+            1,
+            &CambiosBox {
+                activo: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
-        let error = crear_reserva(&conn, &nueva(1, "Ana", None), ahora()).unwrap_err();
+        let error = crear_reserva(&conn, &nueva(1, 1, None), ahora()).unwrap_err();
 
         assert!(matches!(error, ErrorServicio::BoxInactivo));
     }
 
     #[test]
     fn box_inexistente_es_no_encontrado() {
-        let conn = con_box();
+        let conn = con_box_y_funcionario();
 
-        let error = crear_reserva(&conn, &nueva(9, "Ana", None), ahora()).unwrap_err();
+        let error = crear_reserva(&conn, &nueva(9, 1, None), ahora()).unwrap_err();
 
         assert!(matches!(error, ErrorServicio::NoEncontrado(Entidad::Box)));
     }
@@ -461,7 +343,7 @@ mod tests {
             fechas: fechas.iter().map(|f| f.parse().unwrap()).collect(),
             desde: Bloque::new(desde).unwrap(),
             hasta: Bloque::new(hasta).unwrap(),
-            funcionario: "Ana".into(),
+            funcionario_id: 1,
             motivo: None,
             omitir_ocupados: omitir,
         }
@@ -478,7 +360,7 @@ mod tests {
 
     #[test]
     fn lote_crea_cada_bloque_de_cada_fecha_con_un_mismo_grupo() {
-        let conn = con_box();
+        let conn = con_box_y_funcionario();
 
         let resultado = crear_lote(
             &conn,
@@ -500,8 +382,8 @@ mod tests {
 
     #[test]
     fn lote_con_un_bloque_ocupado_no_crea_nada() {
-        let conn = con_box();
-        crear_reserva(&conn, &nueva(1, "Otro", None), ahora()).unwrap(); // bloque 2 del 01
+        let conn = con_box_y_funcionario();
+        crear_reserva(&conn, &nueva(1, 1, None), ahora()).unwrap();
 
         let error = crear_lote(&conn, &lote(&["2026-10-01"], 0, 3, false), ahora()).unwrap_err();
 
@@ -511,8 +393,8 @@ mod tests {
 
     #[test]
     fn lote_omitiendo_ocupados_crea_los_libres_e_informa_el_resto() {
-        let conn = con_box();
-        crear_reserva(&conn, &nueva(1, "Otro", None), ahora()).unwrap();
+        let conn = con_box_y_funcionario();
+        crear_reserva(&conn, &nueva(1, 1, None), ahora()).unwrap();
 
         let resultado = crear_lote(&conn, &lote(&["2026-10-01"], 0, 3, true), ahora()).unwrap();
 
@@ -523,8 +405,8 @@ mod tests {
 
     #[test]
     fn lote_sin_ningun_bloque_libre_es_bloque_ocupado() {
-        let conn = con_box();
-        crear_reserva(&conn, &nueva(1, "Otro", None), ahora()).unwrap();
+        let conn = con_box_y_funcionario();
+        crear_reserva(&conn, &nueva(1, 1, None), ahora()).unwrap();
 
         let error = crear_lote(&conn, &lote(&["2026-10-01"], 2, 2, true), ahora()).unwrap_err();
 
@@ -533,7 +415,7 @@ mod tests {
 
     #[test]
     fn lote_invertido_vacio_o_demasiado_largo_es_invalido() {
-        let conn = con_box();
+        let conn = con_box_y_funcionario();
         let muchas: Vec<String> = (1..=MAX_FECHAS_LOTE + 1)
             .map(|d| format!("2026-{:02}-{:02}", 1 + (d - 1) / 28, 1 + (d - 1) % 28))
             .collect();
@@ -553,7 +435,7 @@ mod tests {
 
     #[test]
     fn cancelar_grupo_desde_una_fecha_conserva_las_anteriores() {
-        let conn = con_box();
+        let conn = con_box_y_funcionario();
         let creado = crear_lote(
             &conn,
             &lote(&["2026-10-01", "2026-10-08", "2026-10-15"], 0, 1, false),
@@ -574,7 +456,7 @@ mod tests {
 
     #[test]
     fn consulta_sin_parametros_o_mezclada_es_invalida() {
-        let conn = con_box();
+        let conn = con_box_y_funcionario();
         let fecha: Fecha = "2026-10-01".parse().unwrap();
 
         for consulta in [
@@ -599,7 +481,7 @@ mod tests {
 
     #[test]
     fn rango_invertido_o_demasiado_largo_es_invalido() {
-        let conn = con_box();
+        let conn = con_box_y_funcionario();
         let consulta = |desde: &str, hasta: &str| ConsultaReservas {
             fecha: None,
             desde: Some(desde.parse().unwrap()),

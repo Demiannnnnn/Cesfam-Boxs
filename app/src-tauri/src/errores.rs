@@ -81,6 +81,8 @@ fn codigo_texto(codigo: CodigoError) -> &'static str {
         CodigoError::BloqueOcupado => "bloque_ocupado",
         CodigoError::NombreDuplicado => "nombre_duplicado",
         CodigoError::BoxInactivo => "box_inactivo",
+        CodigoError::FuncionarioInactivo => "funcionario_inactivo",
+        CodigoError::EtiquetaInactiva => "etiqueta_inactiva",
         CodigoError::ErrorInterno => "interno",
     }
 }
@@ -97,7 +99,10 @@ fn mensaje_api(codigo: CodigoError, mensaje: &str) -> String {
             "Ocurrió un error en el servidor. Si se repite, avisa a TI y menciona la hora."
                 .to_owned()
         }
-        CodigoError::DatosInvalidos | CodigoError::NoEncontrado => mensaje.to_owned(),
+        CodigoError::DatosInvalidos
+        | CodigoError::NoEncontrado
+        | CodigoError::FuncionarioInactivo
+        | CodigoError::EtiquetaInactiva => mensaje.to_owned(),
     }
 }
 

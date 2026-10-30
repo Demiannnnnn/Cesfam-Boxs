@@ -107,6 +107,6 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
-| [T-7.1](fase-7/T-7.1-api-funcionarios-etiquetas.md) | API: funcionarios registrados y etiquetas con color | RF-13, RF-14 | fase 6 | pendiente |
+| [T-7.1](fase-7/T-7.1-api-funcionarios-etiquetas.md) | API: funcionarios registrados y etiquetas con color | RF-13, RF-14 | fase 6 | completada |
 | [T-7.2](fase-7/T-7.2-app-funcionarios-etiquetas.md) | App: apartados de funcionarios y etiquetas, reserva por funcionario registrado, colores | RF-13, RF-14 | T-7.1 | pendiente |
 | [T-7.3](fase-7/T-7.3-busqueda.md) | Búsqueda de reservas y de boxes libres | RF-15 | T-7.1, T-7.2 | pendiente |

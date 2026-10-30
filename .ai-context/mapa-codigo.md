@@ -6,16 +6,18 @@ Dónde vive cada responsabilidad. Actualizar al crear o mover módulos.
 |---|---|---|
 | Tipos del dominio y DTOs | `shared/src/modelo.rs` | — |
 | Horario (bloques ↔ hora) | `shared/src/horario.rs` | RF-01 |
-| `Fecha`, `Bloque` validados | `shared/src/tipos.rs` | RF-03 |
+| `Fecha`, `Bloque`, `Color` validados | `shared/src/tipos.rs` | RF-03, RF-14 |
 | Cuerpo de error y códigos | `shared/src/error.rs` | RF-05, RNF-09 |
 | Protocolo UDP (constantes) | `shared/src/descubrimiento.rs` | RF-09 |
 | Config API (rutas, puertos) | `api/src/config.rs` | RNF-03, RNF-04 |
-| Esquema y migraciones | `api/src/db.rs` | RF-05, RNF-06 |
-| SQL de boxes | `api/src/repositorio/boxes.rs` | RF-06, RNF-06 |
-| SQL de reservas | `api/src/repositorio/reservas.rs` | RF-03–05, RNF-06 |
-| Reglas de negocio | `api/src/servicio.rs` | RF-03–06 |
+| Esquema y migraciones | `api/src/db.rs` | RF-05, RF-13, RF-14, RNF-06 |
+| SQL de boxes | `api/src/repositorio/boxes.rs` | RF-06, RF-14, RNF-06 |
+| SQL de etiquetas | `api/src/repositorio/etiquetas.rs` | RF-14, RNF-06 |
+| SQL de funcionarios | `api/src/repositorio/funcionarios.rs` | RF-13, RF-14, RNF-06 |
+| SQL de reservas | `api/src/repositorio/reservas.rs` | RF-03–05, RF-13, RNF-06 |
+| Reglas de negocio (errores, catálogos, reservas) | `api/src/servicio/{mod,catalogos,reservas}.rs` | RF-03–06, RF-12–14 |
 | Router, CORS | `api/src/http/mod.rs` | RNF-07 |
-| Handlers | `api/src/http/handlers.rs` | RF-03–08 |
+| Handlers | `api/src/http/handlers.rs` | RF-03–08, RF-13, RF-14 |
 | Error → respuesta HTTP | `api/src/http/error.rs` | RF-05 |
 | Listener UDP | `api/src/descubrimiento.rs` | RF-09, RNF-03 |
 | Respaldo y rotación | `api/src/respaldo.rs` | RF-11 |
