@@ -102,3 +102,11 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 | [T-5.3](fase-5/T-5.3-guia-instalacion.md) | Guía de instalación y solución de problemas | RNF-12 | T-4.2 | pendiente |
 | [T-5.4](fase-5/T-5.4-instalacion-demo.md) | Instalar en el CESFAM y demostración | — | T-5.1 | bloqueada |
 | [T-5.5](fase-5/T-5.5-acta-entrega.md) | Firmar el acta de entrega | — | T-5.4 | bloqueada |
+
+### Fase 7 — Funcionarios, etiquetas y búsqueda (ADR-017)
+
+| ID | Tarea | Cubre | Depende de | Estado |
+|---|---|---|---|---|
+| [T-7.1](fase-7/T-7.1-api-funcionarios-etiquetas.md) | API: funcionarios registrados y etiquetas con color | RF-13, RF-14 | fase 6 | pendiente |
+| [T-7.2](fase-7/T-7.2-app-funcionarios-etiquetas.md) | App: apartados de funcionarios y etiquetas, reserva por funcionario registrado, colores | RF-13, RF-14 | T-7.1 | pendiente |
+| [T-7.3](fase-7/T-7.3-busqueda.md) | Búsqueda de reservas y de boxes libres | RF-15 | T-7.1, T-7.2 | pendiente |

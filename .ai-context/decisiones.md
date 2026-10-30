@@ -75,3 +75,25 @@ organizada por persona. → Selector Día | Semana: boxes × (lun–vie × AM/PM
 buscador que resalta un funcionario en ambas vistas; `GET /funcionarios` (nombres recientes)
 para sugerir y no duplicar escrituras. → Sigue siendo una sola pantalla con dos modos; no se
 agrega una tabla de funcionarios (el dato sigue siendo texto en la reserva).
+
+## ADR-017 · 2026-10-30 · aceptada — Funcionarios registrados, etiquetas con color y búsqueda
+Pedido del responsable: (1) que reservar no "cree" un funcionario escribiendo cualquier nombre,
+sino que exista un apartado para registrarlos y al reservar se busque entre ellos; (2) etiquetas
+con color (p. ej. "Enfermería", "Cirugía") asignables a boxes y a funcionarios; (3) un método de
+búsqueda. Reemplaza la parte de ADR-016 que decía "no se agrega una tabla de funcionarios".
+→ Migración v3: tablas `etiqueta (id, nombre UNIQUE NOCASE, color '#RRGGBB', activo)` y
+`funcionario (id, nombre UNIQUE NOCASE, etiqueta_id NULL → etiqueta, activo)`; `box.etiqueta_id`
+y `reserva.funcionario_id` (NULL → funcionario). La migración registra como funcionarios los
+nombres distintos ya usados en `reserva.funcionario` y rellena `funcionario_id`. La columna de
+texto `reserva.funcionario` se conserva (no se puede quitar el NOT NULL sin recrear la tabla) y se
+sigue escribiendo con el nombre al crear; **al leer, el nombre sale del JOIN** con `funcionario`
+para reflejar renombres. Las reservas se crean con `funcionario_id` (no con texto); un
+funcionario inexistente → 404, inactivo → 422 `funcionario_inactivo`.
+Una sola etiqueta por box y por funcionario (nullable): basta para "este box es de enfermería" y
+"este funcionario es cirujano"; muchas-a-muchas se evalúa si en terreno hace falta.
+Color: newtype `shared::Color` (`#RRGGBB`, parsear-no-validar). La app colorea la barra de la
+reserva con la etiqueta del funcionario y el encabezado del box con la etiqueta del box, con
+texto negro o blanco según contraste.
+Búsqueda: `GET /reservas/buscar` (por funcionario, etiqueta y/o box en un rango de fechas) y
+`GET /boxes/libres` (boxes activos libres en todo un rango horario de un día, filtrable por
+etiqueta). → Siguen sin roles ni autenticación: cualquiera puede registrar funcionarios.
