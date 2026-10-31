@@ -23,6 +23,8 @@ NuevoLote          { box_id: i64, fechas: [Fecha] (1..=46), desde: Bloque, hasta
                      funcionario_id: i64, motivo: Option<String>, omitir_ocupados: bool = false }
 ResultadoLote      { creadas: [Reserva], omitidos: [{ fecha: Fecha, bloque: Bloque }] }
 ResultadoCancelacion { canceladas: usize }
+ConsultaBuscarReservas { desde: Fecha, hasta: Fecha, funcionario_id?: i64, etiqueta_id?: i64, box_id?: i64 }
+ConsultaBoxesLibres { fecha: Fecha, desde: Bloque, hasta: Bloque, etiqueta_id?: i64 }
 EstadoSalud        { estado: "ok", version: String, equipo: String }
 ErrorRespuesta     { codigo: CodigoError, mensaje: String }
 RespuestaDescubrimiento { servicio: "gestionbox", version, puerto_http: u16, equipo }
@@ -43,6 +45,7 @@ cambia la etiqueta; `"etiqueta_id": null` (`Some(None)`) la quita; `"etiqueta_id
 |---|---|---|---|---|
 | GET | `/health` | — | 200 `EstadoSalud` | — |
 | GET | `/boxes` | `?incluir_inactivos=bool` | 200 `[BoxAtencion]` | — |
+| GET | `/boxes/libres` | `?fecha=&desde=&hasta=&etiqueta_id=` | 200 `[BoxAtencion]` activos orden grilla | 400 |
 | POST | `/boxes` | `NuevoBox` | 201 `BoxAtencion` | 400, 404, 409 nombre_duplicado, 422 etiqueta_inactiva |
 | PATCH | `/boxes/{id}` | `CambiosBox` | 200 `BoxAtencion` | 400, 404, 409 nombre_duplicado, 422 etiqueta_inactiva |
 | GET | `/etiquetas` | `?incluir_inactivos=bool` | 200 `[Etiqueta]` orden por nombre | — |
@@ -52,6 +55,7 @@ cambia la etiqueta; `"etiqueta_id": null` (`Some(None)`) la quita; `"etiqueta_id
 | POST | `/funcionarios` | `NuevoFuncionario` | 201 `Funcionario` | 400, 404, 409 nombre_duplicado, 422 etiqueta_inactiva |
 | PATCH | `/funcionarios/{id}` | `CambiosFuncionario` | 200 `Funcionario` | 400, 404, 409 nombre_duplicado, 422 etiqueta_inactiva |
 | GET | `/reservas` | `?fecha=` ó `?desde=&hasta=` | 200 `[Reserva]` orden (fecha, bloque, box_id) | 400 |
+| GET | `/reservas/buscar` | `?desde=&hasta=&funcionario_id=&etiqueta_id=&box_id=` | 200 `[Reserva]` orden (fecha, box_id, bloque), máx. 2000 | 400 |
 | POST | `/reservas` | `NuevaReserva` | 201 `Reserva` | 400, 404, 409 bloque_ocupado, 422 box_inactivo \| funcionario_inactivo |
 | POST | `/reservas/lote` | `NuevoLote` | 201 `ResultadoLote` | 400, 404, 409 bloque_ocupado, 422 box_inactivo \| funcionario_inactivo |
 | DELETE | `/reservas/{id}` | — | 204 | 404 |
@@ -66,6 +70,8 @@ cambia la etiqueta; `"etiqueta_id": null` (`Some(None)`) la quita; `"etiqueta_id
 - `funcionario_id` al reservar: debe existir (404) y estar activo (422).
 - Al leer reservas, `funcionario` proviene de `LEFT JOIN funcionario` (`COALESCE(f.nombre, r.funcionario)`), reflejando renombres.
 - Rango `desde..=hasta`: `desde <= hasta`, ≤ 366 días.
+- `/reservas/buscar`: exige `desde..=hasta` y al menos uno de `funcionario_id`, `etiqueta_id` o `box_id` (400 `"Indica al menos un funcionario, etiqueta o box"`); `etiqueta_id` filtra por etiqueta del funcionario o del box; máx. 2000 filas.
+- `/boxes/libres`: `desde <= hasta` (`Bloque`); devuelve boxes activos sin reservas en `desde..=hasta` de `fecha` (`NOT EXISTS`), filtrados por `etiqueta_id` del box si se indica.
 - Box nuevo: `orden = max(orden)+1`.
 - Lote: `desde <= hasta`; fechas sin repetir (se ordenan). Una transacción: sin
   `omitir_ocupados` es todo o nada (409); con él crea los libres y lista los ocupados

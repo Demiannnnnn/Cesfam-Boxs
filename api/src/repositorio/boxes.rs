@@ -1,6 +1,6 @@
-//! SQL de la tabla `box` (RF-06, RF-14).
+//! SQL de la tabla `box` (RF-06, RF-14, RF-15).
 
-use gestion_box_shared::BoxAtencion;
+use gestion_box_shared::{Bloque, BoxAtencion, Fecha};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use super::{es_violacion_unique, ErrorRepositorio};
@@ -8,6 +8,17 @@ use super::{es_violacion_unique, ErrorRepositorio};
 const SQL_LISTAR: &str = "SELECT id, nombre, activo, orden, etiqueta_id FROM box
      WHERE (?1 OR activo = 1)
      ORDER BY orden, nombre COLLATE NOCASE";
+const SQL_LISTAR_LIBRES: &str = "SELECT b.id, b.nombre, b.activo, b.orden, b.etiqueta_id
+     FROM box b
+     WHERE b.activo = 1
+       AND (?4 IS NULL OR b.etiqueta_id = ?4)
+       AND NOT EXISTS (
+           SELECT 1 FROM reserva r
+           WHERE r.box_id = b.id
+             AND r.fecha = ?1
+             AND r.bloque BETWEEN ?2 AND ?3
+       )
+     ORDER BY b.orden, b.nombre COLLATE NOCASE";
 const SQL_OBTENER: &str = "SELECT id, nombre, activo, orden, etiqueta_id FROM box WHERE id = ?1";
 const SQL_CREAR: &str = "INSERT INTO box (nombre, orden, etiqueta_id)
      VALUES (?1, (SELECT COALESCE(MAX(orden), 0) + 1 FROM box), ?2)";
@@ -43,6 +54,25 @@ pub fn listar(
     let mut sentencia = conn.prepare_cached(SQL_LISTAR)?;
     let boxes = sentencia
         .query_map(params![incluir_inactivos], fila_a_box)?
+        .collect::<Result<_, _>>()?;
+    Ok(boxes)
+}
+
+/// Lista los boxes activos que no tienen ninguna reserva en `desde..=hasta` de `fecha`,
+/// filtrados por `etiqueta_id` si se indica, en el orden de la grilla. Cubre RF-15.
+pub fn listar_libres(
+    conn: &Connection,
+    fecha: Fecha,
+    desde: Bloque,
+    hasta: Bloque,
+    etiqueta_id: Option<i64>,
+) -> Result<Vec<BoxAtencion>, ErrorRepositorio> {
+    let mut sentencia = conn.prepare_cached(SQL_LISTAR_LIBRES)?;
+    let boxes = sentencia
+        .query_map(
+            params![fecha.to_string(), desde.valor(), hasta.valor(), etiqueta_id],
+            fila_a_box,
+        )?
         .collect::<Result<_, _>>()?;
     Ok(boxes)
 }

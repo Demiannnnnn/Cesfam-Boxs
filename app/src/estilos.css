@@ -537,10 +537,18 @@ body {
 
 .navegacion__filtro input {
   font: inherit;
-  width: 15rem;
+  width: 14rem;
   padding: 0.35rem 0.6rem;
   border: 1px solid var(--color-borde);
   border-radius: var(--radio);
+}
+
+.navegacion__filtro-etiqueta select {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
 }
 
 /* ─── Modal de reserva ──────────────────────────────────────── */
@@ -661,12 +669,15 @@ body {
 }
 
 .campo input[type="text"],
+.campo input[type="search"],
 .campo input[type="date"],
+.campo > select,
 .lista-boxes__fila input[type="text"] {
   font: inherit;
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--color-borde);
   border-radius: var(--radio);
+  background: var(--color-superficie);
 }
 
 .datos {
@@ -879,4 +890,126 @@ body {
   gap: 0.5rem;
   min-height: 1.6rem;
   margin-top: 0.15rem;
+}
+
+/* ─── Modal de búsqueda ─────────────────────────────────────── */
+
+.buscar__pestanas {
+  margin: 0 0 0.75rem;
+}
+
+.buscar__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.buscar__fila {
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.buscar__fila .campo {
+  flex: 1;
+}
+
+.buscar__acciones {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.buscar__contador {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-texto-suave);
+}
+
+.buscar__resultados {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.buscar__vacio {
+  margin: 0.5rem 0;
+  color: var(--color-texto-suave);
+}
+
+.buscar__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  font: inherit;
+  text-align: left;
+}
+
+.buscar__item--reserva {
+  cursor: pointer;
+}
+
+.buscar__item--reserva:hover {
+  background: var(--color-libre-hover);
+  border-color: #b2ddf0;
+}
+
+.buscar__item--box {
+  justify-content: space-between;
+}
+
+.buscar__fecha {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.buscar__horario {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-texto-suave);
+  white-space: nowrap;
+}
+
+.buscar__box {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.buscar__funcionario {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.buscar__funcionario-nombre {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buscar__motivo {
+  font-size: 0.85rem;
+  color: var(--color-texto-suave);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buscar__box-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.buscar__box-nombre {
+  font-weight: 600;
 }

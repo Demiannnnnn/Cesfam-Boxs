@@ -20,6 +20,7 @@ export interface Tramo {
 
 function continua(tramo: Tramo, reserva: Reserva): boolean {
   return (
+    tramo.reservas[0]?.fecha === reserva.fecha &&
     tramo.box_id === reserva.box_id &&
     tramo.hasta + 1 === reserva.bloque &&
     tramo.funcionario_id === reserva.funcionario_id &&
@@ -51,4 +52,23 @@ export function agruparEnTramos(reservas: Reserva[]): Map<string, Tramo> {
     tramos.set(`${reserva.box_id}-${reserva.bloque}`, actual);
   }
   return tramos;
+}
+
+/**
+ * Agrupa reservas de una o varias fechas en una lista de tramos ordenada por
+ * `(fecha, box_id, desde)` reutilizando `agruparEnTramos` por cada día (RF-15).
+ */
+export function listarTramos(reservas: Reserva[]): Tramo[] {
+  const porFecha = new Map<string, Reserva[]>();
+  for (const r of reservas) {
+    const lista = porFecha.get(r.fecha) ?? [];
+    lista.push(r);
+    porFecha.set(r.fecha, lista);
+  }
+  const resultado: Tramo[] = [];
+  for (const fecha of [...porFecha.keys()].sort()) {
+    const delDia = porFecha.get(fecha) ?? [];
+    resultado.push(...agruparEnTramos(delDia).values());
+  }
+  return resultado;
 }

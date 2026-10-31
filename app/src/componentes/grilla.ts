@@ -179,7 +179,11 @@ function celdaOcupada(tramo: Tramo, contexto: Contexto): HTMLTableCellElement {
   const horas = rangoHorario(tramo.desde, tramo.hasta);
   const etiqueta = etiquetaDeFuncionario(tramo.funcionario_id);
   const detalle = [tramo.funcionario, etiqueta?.nombre, horas, tramo.motivo].filter(Boolean).join(" · ");
-  const coincide = coincideFiltro({ funcionario_id: tramo.funcionario_id, nombre: tramo.funcionario });
+  const coincide = coincideFiltro({
+    box_id: tramo.box_id,
+    funcionario_id: tramo.funcionario_id,
+    nombre: tramo.funcionario,
+  });
   const clases = ["celda", "celda--ocupada"];
   if (coincide === true) clases.push("celda--destacada");
   if (coincide === false) clases.push("celda--atenuada");

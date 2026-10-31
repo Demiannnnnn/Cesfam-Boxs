@@ -12,6 +12,8 @@ import type {
   CambiosFuncionario,
   ErrorUi,
   Etiqueta,
+  FiltroBoxesLibres,
+  FiltroBuscarReservas,
   Funcionario,
   Horario,
   NuevoLote,
@@ -56,6 +58,13 @@ export const api = {
     llamar<BoxAtencion>("crear_box", { nombre, etiquetaId }),
   actualizarBox: (id: number, cambios: CambiosBox) =>
     llamar<BoxAtencion>("actualizar_box", { id, cambios }),
+  boxesLibres: (filtro: FiltroBoxesLibres) =>
+    llamar<BoxAtencion[]>("boxes_libres", {
+      fecha: filtro.fecha,
+      desde: filtro.desde,
+      hasta: filtro.hasta,
+      etiquetaId: filtro.etiqueta_id,
+    }),
   listarEtiquetas: (incluirInactivos: boolean) =>
     llamar<Etiqueta[]>("listar_etiquetas", { incluirInactivos }),
   crearEtiqueta: (nombre: string, color: string) =>
@@ -71,6 +80,14 @@ export const api = {
   listarReservas: (fecha: string) => llamar<Reserva[]>("listar_reservas", { fecha }),
   listarReservasRango: (desde: string, hasta: string) =>
     llamar<Reserva[]>("listar_reservas_rango", { desde, hasta }),
+  buscarReservas: (filtro: FiltroBuscarReservas) =>
+    llamar<Reserva[]>("buscar_reservas", {
+      desde: filtro.desde,
+      hasta: filtro.hasta,
+      funcionarioId: filtro.funcionario_id,
+      etiquetaId: filtro.etiqueta_id,
+      boxId: filtro.box_id,
+    }),
   crearReservas: (lote: NuevoLote) => llamar<ResultadoLote>("crear_reservas", { lote }),
   cancelarReserva: (id: number) => llamar<void>("cancelar_reserva", { id }),
   cancelarGrupo: (grupo: number, desde: string) =>

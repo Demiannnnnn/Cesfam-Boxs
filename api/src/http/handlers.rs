@@ -5,8 +5,8 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use gestion_box_shared::{
-    CambiosBox, CambiosEtiqueta, CambiosFuncionario, EstadoSalud, Fecha, NuevaEtiqueta,
-    NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote,
+    CambiosBox, CambiosEtiqueta, CambiosFuncionario, ConsultaBoxesLibres, ConsultaBuscarReservas,
+    EstadoSalud, Fecha, NuevaEtiqueta, NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote,
 };
 use serde::Deserialize;
 
@@ -68,6 +68,17 @@ pub async fn actualizar_box(
         .con_db(move |conn| servicio::actualizar_box(conn, id, &cambios))
         .await?;
     Ok(Json(actualizado))
+}
+
+/// `GET /boxes/libres?fecha=&desde=&hasta=&etiqueta_id=` (RF-15).
+pub async fn boxes_libres(
+    State(estado): State<AppState>,
+    QueryApi(consulta): QueryApi<ConsultaBoxesLibres>,
+) -> Resultado<impl IntoResponse> {
+    let boxes = estado
+        .con_db(move |conn| servicio::boxes_libres(conn, &consulta))
+        .await?;
+    Ok(Json(boxes))
 }
 
 /// `GET /etiquetas` (RF-14).
@@ -145,6 +156,17 @@ pub async fn listar_reservas(
 ) -> Resultado<impl IntoResponse> {
     let reservas = estado
         .con_db(move |conn| servicio::listar_reservas(conn, &consulta))
+        .await?;
+    Ok(Json(reservas))
+}
+
+/// `GET /reservas/buscar?desde=&hasta=&funcionario_id=&etiqueta_id=&box_id=` (RF-15).
+pub async fn buscar_reservas(
+    State(estado): State<AppState>,
+    QueryApi(consulta): QueryApi<ConsultaBuscarReservas>,
+) -> Resultado<impl IntoResponse> {
+    let reservas = estado
+        .con_db(move |conn| servicio::buscar_reservas(conn, &consulta))
         .await?;
     Ok(Json(reservas))
 }

@@ -1,6 +1,6 @@
-//! SQL de la tabla `reserva` (RF-03, RF-04, RF-05, RF-13).
+//! SQL de la tabla `reserva` (RF-03, RF-04, RF-05, RF-13, RF-15).
 
-use gestion_box_shared::{Bloque, Fecha, Reserva};
+use gestion_box_shared::{Bloque, ConsultaBuscarReservas, Fecha, Reserva};
 use rusqlite::types::Type;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
@@ -13,6 +13,18 @@ const SQL_LISTAR_RANGO: &str =
      LEFT JOIN funcionario f ON f.id = r.funcionario_id
      WHERE r.fecha BETWEEN ?1 AND ?2
      ORDER BY r.fecha, r.bloque, r.box_id";
+const SQL_BUSCAR: &str =
+    "SELECT r.id, r.box_id, r.fecha, r.bloque, COALESCE(f.nombre, r.funcionario),
+            r.motivo, r.creada_en, r.grupo, r.funcionario_id
+     FROM reserva r
+     JOIN box b ON b.id = r.box_id
+     LEFT JOIN funcionario f ON f.id = r.funcionario_id
+     WHERE r.fecha BETWEEN ?1 AND ?2
+       AND (?3 IS NULL OR r.funcionario_id = ?3)
+       AND (?4 IS NULL OR r.box_id = ?4)
+       AND (?5 IS NULL OR f.etiqueta_id = ?5 OR b.etiqueta_id = ?5)
+     ORDER BY r.fecha, r.box_id, r.bloque
+     LIMIT ?6";
 const SQL_OBTENER: &str =
     "SELECT r.id, r.box_id, r.fecha, r.bloque, COALESCE(f.nombre, r.funcionario),
             r.motivo, r.creada_en, r.grupo, r.funcionario_id
@@ -70,6 +82,31 @@ pub fn listar_por_rango(
     let reservas = sentencia
         .query_map(
             params![desde.to_string(), hasta.to_string()],
+            fila_a_reserva,
+        )?
+        .collect::<Result<_, _>>()?;
+    Ok(reservas)
+}
+
+/// Busca reservas en `desde..=hasta` filtrando por funcionario, box y/o etiqueta
+/// (del funcionario o del box), ordenadas por `(fecha, box_id, bloque)` hasta `limite` filas.
+/// Cubre RF-15.
+pub fn buscar(
+    conn: &Connection,
+    consulta: &ConsultaBuscarReservas,
+    limite: usize,
+) -> Result<Vec<Reserva>, ErrorRepositorio> {
+    let mut sentencia = conn.prepare_cached(SQL_BUSCAR)?;
+    let reservas = sentencia
+        .query_map(
+            params![
+                consulta.desde.to_string(),
+                consulta.hasta.to_string(),
+                consulta.funcionario_id,
+                consulta.box_id,
+                consulta.etiqueta_id,
+                limite as i64,
+            ],
             fila_a_reserva,
         )?
         .collect::<Result<_, _>>()?;

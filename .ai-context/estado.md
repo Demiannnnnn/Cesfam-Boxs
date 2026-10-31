@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 2026-10-30.
+Última actualización: 2026-10-31.
 
 ## Resumen
 
@@ -13,7 +13,7 @@
 | 4 — Instalación | pendiente |
 | 5 — Entrega | borradores de manual y guía en `docs/` |
 | 6 — Grilla agenda, rangos y semana | implementada (ADR-014, ADR-015, ADR-016) |
-| 7 — Funcionarios, etiquetas y búsqueda | en curso: T-7.1 completada y T-7.2 implementada (validación manual pendiente); pendiente T-7.3 |
+| 7 — Funcionarios, etiquetas y búsqueda | en curso: T-7.1 completada, T-7.2 y T-7.3 implementadas (validación manual pendiente) |
 
 ## Ramas activas
 

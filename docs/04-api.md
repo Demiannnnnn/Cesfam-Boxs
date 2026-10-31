@@ -69,6 +69,23 @@ Errores: `400 datos_invalidos`, `404 no_encontrado` (etiqueta), `409 nombre_dupl
 
 Errores: `400`, `404 no_encontrado`, `409 nombre_duplicado`, `422 etiqueta_inactiva`.
 
+### `GET /boxes/libres` — buscar boxes libres en un rango horario (RF-15)
+
+Query: `?fecha=2026-10-06&desde=12&hasta=17&etiqueta_id=1` (`etiqueta_id` opcional).
+
+- `fecha`: fecha `AAAA-MM-DD`.
+- `desde` y `hasta`: bloques `0`–`23` con `desde <= hasta`.
+- `etiqueta_id`: opcional; filtra por la etiqueta asignada al box.
+
+Devuelve los boxes **activos** que no tienen ninguna reserva en `desde..=hasta` de esa fecha
+(una sola consulta con `NOT EXISTS`), ordenados igual que en la grilla (`orden`, `nombre`).
+
+```json
+200 [ { "id": 2, "nombre": "Box 2", "activo": true, "orden": 2, "etiqueta_id": 1 } ]
+```
+
+Errores: `400 datos_invalidos` (`desde > hasta`, fecha o bloque inválido).
+
 ### `GET /etiquetas` — listar etiquetas (RF-14)
 
 Query opcional `incluir_inactivos=true`. Por defecto solo activas, ordenadas alfabéticamente por `nombre`.
@@ -148,6 +165,18 @@ Una de dos formas:
     "creada_en": "2026-09-30T16:12:03", "grupo": null }
 ]
 ```
+
+### `GET /reservas/buscar` — buscar reservas (RF-15)
+
+Query: `?desde=2026-10-01&hasta=2026-10-31&funcionario_id=1&etiqueta_id=2&box_id=3`.
+
+- `desde` y `hasta`: obligatorios (`desde <= hasta`, máx. 366 días).
+- `funcionario_id`, `etiqueta_id`, `box_id`: opcionales y combinables (`AND`); **al menos uno de los tres es obligatorio** (`400 datos_invalidos` con mensaje `"Indica al menos un funcionario, etiqueta o box"`).
+- `etiqueta_id`: filtra las reservas donde la etiqueta pertenezca **al funcionario o al box**.
+
+Devuelve `[Reserva]` ordenado por `(fecha, box_id, bloque)`, hasta un máximo de 2000 filas.
+
+Errores: `400 datos_invalidos`.
 
 ### `POST /reservas` — crear reserva (RF-03, RF-05, RF-13)
 

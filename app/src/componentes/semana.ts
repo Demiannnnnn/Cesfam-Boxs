@@ -178,7 +178,9 @@ function celda(
 
   const personas = resumir(reservas);
   const completo = reservas.length === periodo.hasta - periodo.desde + 1;
-  const coincidencias = personas.map((p) => coincideFiltro({ funcionario_id: p.funcionario_id, nombre: p.nombre }));
+  const coincidencias = personas.map((p) =>
+    coincideFiltro({ box_id: box.id, funcionario_id: p.funcionario_id, nombre: p.nombre }),
+  );
   const clases = ["celda", completo ? "celda--ocupada" : "celda--parcial"];
   if (coincidencias.some((c) => c === true)) clases.push("celda--destacada");
   else if (coincidencias.some((c) => c === false)) clases.push("celda--atenuada");

@@ -194,6 +194,31 @@ pub struct ResultadoCancelacion {
     pub canceladas: usize,
 }
 
+/// Parámetros de consulta de `GET /reservas/buscar`. Cubre RF-15.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConsultaBuscarReservas {
+    pub desde: Fecha,
+    pub hasta: Fecha,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub funcionario_id: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub etiqueta_id: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub box_id: Option<i64>,
+}
+
+/// Parámetros de consulta de `GET /boxes/libres`. Cubre RF-15.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConsultaBoxesLibres {
+    pub fecha: Fecha,
+    pub desde: Bloque,
+    pub hasta: Bloque,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub etiqueta_id: Option<i64>,
+}
+
 /// Respuesta de `GET /health`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EstadoSalud {

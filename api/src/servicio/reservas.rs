@@ -9,7 +9,9 @@ use rusqlite::Connection;
 use serde::Deserialize;
 
 use super::catalogos::{exigir_box_activo, exigir_funcionario_activo};
-use super::{texto_opcional, Entidad, ErrorServicio, MAX_DIAS_RANGO, MAX_FECHAS_LOTE, MAX_MOTIVO};
+use super::{
+    texto_opcional, validar_rango_fechas, Entidad, ErrorServicio, MAX_FECHAS_LOTE, MAX_MOTIVO,
+};
 use crate::repositorio::reservas::ReservaValida;
 use crate::repositorio::{reservas, ErrorRepositorio};
 
@@ -38,17 +40,7 @@ pub fn listar_reservas(
             desde: Some(desde),
             hasta: Some(hasta),
         } => {
-            let dias = desde.dias_hasta(hasta);
-            if dias < 0 {
-                return Err(ErrorServicio::DatosInvalidos(
-                    "La fecha \"desde\" debe ser anterior o igual a \"hasta\"".into(),
-                ));
-            }
-            if dias >= MAX_DIAS_RANGO {
-                return Err(ErrorServicio::DatosInvalidos(format!(
-                    "El rango no puede superar {MAX_DIAS_RANGO} días"
-                )));
-            }
+            validar_rango_fechas(desde, hasta)?;
             (desde, hasta)
         }
         _ => {

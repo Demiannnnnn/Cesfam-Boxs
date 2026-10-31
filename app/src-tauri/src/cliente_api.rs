@@ -1,13 +1,14 @@
-//! Cliente HTTP tipado de la API, con timeouts explícitos (RF-03 – RF-08, RF-13, RF-14).
+//! Cliente HTTP tipado de la API, con timeouts explícitos (RF-03 – RF-08, RF-13 – RF-15).
 
 use std::error::Error as _;
 use std::time::Duration;
 
 use gestion_box_shared::descubrimiento::PUERTO_HTTP_POR_DEFECTO;
 use gestion_box_shared::{
-    BoxAtencion, CambiosBox, CambiosEtiqueta, CambiosFuncionario, ErrorRespuesta, EstadoSalud,
-    Etiqueta, Fecha, Funcionario, NuevaEtiqueta, NuevaReserva, NuevoBox, NuevoFuncionario,
-    NuevoLote, Reserva, ResultadoCancelacion, ResultadoLote,
+    BoxAtencion, CambiosBox, CambiosEtiqueta, CambiosFuncionario, ConsultaBoxesLibres,
+    ConsultaBuscarReservas, ErrorRespuesta, EstadoSalud, Etiqueta, Fecha, Funcionario,
+    NuevaEtiqueta, NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote, Reserva,
+    ResultadoCancelacion, ResultadoLote,
 };
 use reqwest::{Client, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
@@ -188,6 +189,15 @@ impl ClienteApi {
         Self::json(self.http.patch(url).json(cambios)).await
     }
 
+    /// `GET /boxes/libres` (RF-15).
+    pub async fn boxes_libres(
+        &self,
+        consulta: &ConsultaBoxesLibres,
+    ) -> Result<Vec<BoxAtencion>, ErrorCliente> {
+        let peticion = self.http.get(self.url("/boxes/libres")).query(consulta);
+        Self::json(peticion).await
+    }
+
     /// `GET /etiquetas` (RF-14).
     pub async fn listar_etiquetas(
         &self,
@@ -264,6 +274,15 @@ impl ClienteApi {
             .http
             .get(self.url("/reservas"))
             .query(&[("desde", desde.to_string()), ("hasta", hasta.to_string())]);
+        Self::json(peticion).await
+    }
+
+    /// `GET /reservas/buscar` (RF-15).
+    pub async fn buscar_reservas(
+        &self,
+        consulta: &ConsultaBuscarReservas,
+    ) -> Result<Vec<Reserva>, ErrorCliente> {
+        let peticion = self.http.get(self.url("/reservas/buscar")).query(consulta);
         Self::json(peticion).await
     }
 

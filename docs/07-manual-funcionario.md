@@ -44,12 +44,19 @@ En la barra superior:
 3. Para liberar el box: **Cancelar reserva** → confirmar. Si era una reserva semanal, elige
    **Cancelar solo este día** o **Cancelar este día y los siguientes**.
 
-## Ver la semana y buscar a alguien
+## Ver la semana, filtrar y buscar
 
 - **Semana**: de lunes a viernes, mañana (AM) y tarde (PM) de cada box con sus colores.
   Abajo, **Libres** dice qué boxes quedan desocupados en cada medio día. Clic en una celda
   vacía para reservar.
-- **Buscar funcionario…**: escribe o elige un funcionario y sus reservas se resaltan.
+- **Buscar funcionario…** y **Todas las etiquetas**: escribe un funcionario o elige una etiqueta
+  en la barra de navegación para resaltar en el acto sus reservas (por etiqueta del funcionario
+  o del box) y atenuar el resto.
+- **Buscar** (arriba, o `Ctrl+F`):
+  - Pestaña **Reservas**: consulta dónde y cuándo atiende un funcionario, una etiqueta o un box
+    en un rango de fechas. Haz clic en cualquier resultado para ir directo a ese día.
+  - Pestaña **Box libre**: indica fecha, horario (*Mañana*, *Tarde*, *Día completo* o rango) y
+    etiqueta opcional para ver qué boxes están completamente libres y reservar con un clic.
 
 ## Cambiar de día
 

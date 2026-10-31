@@ -9,6 +9,7 @@
  */
 import { api } from "./api";
 import { mostrarAviso } from "./componentes/aviso";
+import { abrirBuscar, type AccionesBuscar } from "./componentes/buscar";
 import { renderizarConexion } from "./componentes/conexion";
 import { alCerrarDialogos, hayDialogoAbierto } from "./componentes/dialogo";
 import { abrirEtiquetas } from "./componentes/etiquetas";
@@ -18,7 +19,7 @@ import { abrirBoxes, abrirConexionManual, abrirDetalle, abrirExportar } from "./
 import { abrirReservar, type AccionesReserva } from "./componentes/reservar";
 import { renderizarSemana } from "./componentes/semana";
 import { el, porId } from "./dom";
-import { estado, funcionariosActivos, type Vista } from "./estado";
+import { estado, etiquetasActivas, funcionariosActivos, type Vista } from "./estado";
 import { diaHabil, diasHabilesDeSemana, fechaLarga, hoy, inicioSemana, sumarDias, tituloSemana } from "./fechas";
 import { textos } from "./textos";
 import type { ErrorUi, Reserva, ResultadoConexion } from "./tipos";
@@ -35,6 +36,7 @@ const elementos = {
   vistaDia: porId<HTMLButtonElement>("btn-vista-dia"),
   vistaSemana: porId<HTMLButtonElement>("btn-vista-semana"),
   filtro: porId<HTMLInputElement>("filtro-funcionario"),
+  filtroEtiqueta: porId<HTMLSelectElement>("filtro-etiqueta"),
   listaFuncionarios: porId<HTMLDataListElement>("lista-funcionarios"),
 };
 
@@ -54,12 +56,29 @@ const accionesReserva: AccionesReserva = {
   },
 };
 
+const accionesBuscar: AccionesBuscar = {
+  alIrADia: (fecha) => cambiarVista("dia", fecha),
+  alReservarBox: (box, fecha, desde, hasta) => {
+    abrirReservar(box, fecha, desde, hasta, accionesReserva);
+  },
+};
+
 function renderizar(): void {
   renderizarConexion(elementos.conexion, estado.conexion);
   renderizarLeyendaEtiquetas(elementos.leyendaEtiquetas);
   elementos.listaFuncionarios.replaceChildren(
     ...funcionariosActivos().map((f) => el("option", { atributos: { value: f.nombre } })),
   );
+  const activas = etiquetasActivas();
+  if (estado.filtroEtiquetaId !== null && !activas.some((e) => e.id === estado.filtroEtiquetaId)) {
+    estado.filtroEtiquetaId = null;
+  }
+  elementos.filtroEtiqueta.replaceChildren(
+    el("option", { texto: textos.navegacion.todasLasEtiquetas, atributos: { value: "" } }),
+    ...activas.map((e) => el("option", { texto: e.nombre, atributos: { value: String(e.id) } })),
+  );
+  elementos.filtroEtiqueta.value =
+    estado.filtroEtiquetaId !== null ? String(estado.filtroEtiquetaId) : "";
   elementos.selectorFecha.value = estado.fecha;
   elementos.vistaDia.setAttribute("aria-pressed", String(estado.vista === "dia"));
   elementos.vistaSemana.setAttribute("aria-pressed", String(estado.vista === "semana"));
@@ -188,10 +207,25 @@ function enlazarEventos(): void {
     estado.filtro = elementos.filtro.value;
     renderizar();
   });
+  elementos.filtroEtiqueta.addEventListener("change", () => {
+    estado.filtroEtiquetaId = elementos.filtroEtiqueta.value
+      ? Number(elementos.filtroEtiqueta.value)
+      : null;
+    renderizar();
+  });
+  porId("btn-buscar").addEventListener("click", () => abrirBuscar(accionesBuscar));
   porId("btn-funcionarios").addEventListener("click", () => abrirFuncionarios(() => void refrescar()));
   porId("btn-etiquetas").addEventListener("click", () => abrirEtiquetas(() => void refrescar()));
   porId("btn-boxes").addEventListener("click", () => abrirBoxes(() => void refrescar()));
   porId("btn-exportar").addEventListener("click", () => abrirExportar());
+  document.addEventListener("keydown", (evento) => {
+    if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === "f") {
+      evento.preventDefault();
+      if (!hayDialogoAbierto()) {
+        abrirBuscar(accionesBuscar);
+      }
+    }
+  });
   alCerrarDialogos(() => void refrescar());
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && !hayDialogoAbierto()) void refrescar();

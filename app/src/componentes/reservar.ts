@@ -18,7 +18,7 @@ import { fechaCorta, finDeMes, sumarDias } from "../fechas";
 import { textos } from "../textos";
 import type { BoxAtencion, ErrorUi, Horario, ResultadoLote } from "../tipos";
 import { abrirDialogo } from "./dialogo";
-import { chipEtiqueta, mientrasOcupado, soloLectura } from "./formulario";
+import { chipEtiqueta, crearSelectorRangoHorario, mientrasOcupado, soloLectura } from "./formulario";
 
 /** Igual que `MAX_FECHAS_LOTE` en la API. */
 const MAX_FECHAS = 46;
@@ -53,13 +53,6 @@ export function fechasSemanales(inicio: string, fin: string): string[] {
   return fechas;
 }
 
-function selector(opciones: Array<[number, string]>, valor: number, etiqueta: string): HTMLSelectElement {
-  const select = el("select", { atributos: { "aria-label": etiqueta } });
-  for (const [v, texto] of opciones) select.append(el("option", { texto, atributos: { value: String(v) } }));
-  select.value = String(valor);
-  return select;
-}
-
 export function abrirReservar(
   box: BoxAtencion,
   fecha: string,
@@ -70,28 +63,13 @@ export function abrirReservar(
   const horario = estado.horario;
   if (!horario) return;
   const dialogo = abrirDialogo(textos.reserva.titulo);
-  const total = horario.cantidad_bloques;
-  const tarde = horario.bloque_inicio_tarde;
-  const indices = Array.from({ length: total }, (_, i) => i);
 
   // ── Horario ──
-  const selDesde = selector(indices.map((i) => [i, etiquetaBloque(i)]), desde, textos.reserva.desde);
-  const selHasta = selector(
-    indices.map((i) => [i, etiquetaFinBloque(i)]),
+  const selectorHorario = crearSelectorRangoHorario(
+    horario,
+    desde,
     hasta ?? hastaPorDefecto(box, fecha, desde, horario),
-    textos.reserva.hasta,
-  );
-  const fijar = (a: number, b: number) => {
-    selDesde.value = String(a);
-    selHasta.value = String(b);
-    actualizarResumen();
-  };
-  const atajos = el(
-    "div",
-    { clase: "atajos" },
-    el("button", { clase: "boton boton--chico", texto: textos.reserva.manana, atributos: { type: "button" }, alHacerClic: () => fijar(0, tarde - 1) }),
-    el("button", { clase: "boton boton--chico", texto: textos.reserva.tarde, atributos: { type: "button" }, alHacerClic: () => fijar(tarde, total - 1) }),
-    el("button", { clase: "boton boton--chico", texto: textos.reserva.diaCompleto, atributos: { type: "button" }, alHacerClic: () => fijar(0, total - 1) }),
+    () => actualizarResumen(),
   );
 
   // ── Funcionario registrado (RF-13, RF-14) ──
@@ -159,7 +137,7 @@ export function abrirReservar(
   repetirHasta.disabled = true;
   const resumen = el("p", { clase: "ayuda resumen-reserva", atributos: { "aria-live": "polite" } });
 
-  const leerRango = (): [number, number] => [Number(selDesde.value), Number(selHasta.value)];
+  const leerRango = (): [number, number] => selectorHorario.rango();
   const leerFechas = (): string[] => (repetir.checked ? fechasSemanales(fecha, repetirHasta.value || fecha) : [fecha]);
 
   function actualizarResumen(): void {
@@ -174,7 +152,7 @@ export function abrirReservar(
     resumen.textContent =
       fechas.length > 1 ? textos.reserva.resumenSerie(horas, fechas.map(fechaCorta)) : textos.reserva.resumenDia(horas);
   }
-  for (const control of [selDesde, selHasta, repetir, repetirHasta]) control.addEventListener("change", actualizarResumen);
+  for (const control of [repetir, repetirHasta]) control.addEventListener("change", actualizarResumen);
   actualizarResumen();
 
   const enviar = el("button", {
@@ -197,7 +175,7 @@ export function abrirReservar(
       "div",
       { clase: "campo" },
       el("span", { clase: "campo__etiqueta", texto: textos.reserva.horario }),
-      el("div", { clase: "rango" }, selDesde, el("span", { texto: "–" }), selHasta, atajos),
+      selectorHorario.raiz,
     ),
     campo(textos.reserva.funcionario, inputFuncionario, estadoFuncionario),
     campo(textos.reserva.motivo, motivo),

@@ -71,6 +71,23 @@ export interface ResultadoLote {
   omitidos: Array<{ fecha: string; bloque: number }>;
 }
 
+/** Parámetros de `buscar_reservas` (`GET /reservas/buscar`). Cubre RF-15. */
+export interface FiltroBuscarReservas {
+  desde: string;
+  hasta: string;
+  funcionario_id: number | null;
+  etiqueta_id: number | null;
+  box_id: number | null;
+}
+
+/** Parámetros de `boxes_libres` (`GET /boxes/libres`). Cubre RF-15. */
+export interface FiltroBoxesLibres {
+  fecha: string;
+  desde: number;
+  hasta: number;
+  etiqueta_id: number | null;
+}
+
 export interface Horario {
   hora_inicio: number;
   minutos_por_bloque: number;

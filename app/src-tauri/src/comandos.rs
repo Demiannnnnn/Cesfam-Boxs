@@ -6,9 +6,10 @@ use std::sync::Mutex;
 
 use gestion_box_shared::horario::Horario;
 use gestion_box_shared::{
-    BoxAtencion, CambiosBox, CambiosEtiqueta, CambiosFuncionario, Color, EstadoSalud, Etiqueta,
-    Fecha, Funcionario, NuevaEtiqueta, NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote,
-    Reserva, ResultadoCancelacion, ResultadoLote,
+    Bloque, BoxAtencion, CambiosBox, CambiosEtiqueta, CambiosFuncionario, Color,
+    ConsultaBoxesLibres, ConsultaBuscarReservas, EstadoSalud, Etiqueta, Fecha, Funcionario,
+    NuevaEtiqueta, NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote, Reserva,
+    ResultadoCancelacion, ResultadoLote,
 };
 use serde::Serialize;
 use tauri::State;
@@ -312,6 +313,57 @@ fn parsear_fecha(texto: &str) -> Resultado<Fecha> {
         .map_err(|_| ErrorUi::datos_invalidos(format!("La fecha \"{texto}\" no es válida.")))
 }
 
+fn parsear_bloque(valor: u8) -> Resultado<Bloque> {
+    Bloque::new(valor).map_err(|e| ErrorUi::datos_invalidos(e.to_string()))
+}
+
+/// Lista los boxes activos libres en `desde..=hasta` de `fecha`, con filtro opcional
+/// de etiqueta del box. Cubre RF-15.
+#[tauri::command]
+pub async fn boxes_libres(
+    estado: State<'_, EstadoApp>,
+    fecha: String,
+    desde: u8,
+    hasta: u8,
+    etiqueta_id: Option<i64>,
+) -> Resultado<Vec<BoxAtencion>> {
+    let consulta = ConsultaBoxesLibres {
+        fecha: parsear_fecha(&fecha)?,
+        desde: parsear_bloque(desde)?,
+        hasta: parsear_bloque(hasta)?,
+        etiqueta_id,
+    };
+    estado
+        .cliente()?
+        .boxes_libres(&consulta)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Busca reservas en `desde..=hasta` filtrando por funcionario, etiqueta y/o box. Cubre RF-15.
+#[tauri::command]
+pub async fn buscar_reservas(
+    estado: State<'_, EstadoApp>,
+    desde: String,
+    hasta: String,
+    funcionario_id: Option<i64>,
+    etiqueta_id: Option<i64>,
+    box_id: Option<i64>,
+) -> Resultado<Vec<Reserva>> {
+    let consulta = ConsultaBuscarReservas {
+        desde: parsear_fecha(&desde)?,
+        hasta: parsear_fecha(&hasta)?,
+        funcionario_id,
+        etiqueta_id,
+        box_id,
+    };
+    estado
+        .cliente()?
+        .buscar_reservas(&consulta)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
 /// Lista las reservas de un día. Cubre RF-01.
 #[tauri::command]
 pub async fn listar_reservas(
@@ -450,6 +502,15 @@ mod tests {
         assert!(parsear_fecha("2026-10-01").is_ok());
 
         let error = parsear_fecha("01-10-2026").unwrap_err();
+        assert_eq!(error.codigo, "datos_invalidos");
+    }
+
+    #[test]
+    fn parsear_bloque_rechaza_fuera_de_rango() {
+        assert!(parsear_bloque(0).is_ok());
+        assert!(parsear_bloque(23).is_ok());
+
+        let error = parsear_bloque(24).unwrap_err();
         assert_eq!(error.codigo, "datos_invalidos");
     }
 }

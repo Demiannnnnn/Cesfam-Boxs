@@ -13,6 +13,8 @@ export interface EstadoPantalla {
   vista: Vista;
   /** Texto del buscador de funcionario; vacío = sin filtro. */
   filtro: string;
+  /** Identificador de etiqueta seleccionada en la barra de navegación; `null` = todas. */
+  filtroEtiquetaId: number | null;
   /** Etiquetas registradas (`GET /etiquetas?incluir_inactivos=true`). */
   etiquetas: Etiqueta[];
   /** Funcionarios registrados (`GET /funcionarios?incluir_inactivos=true`). */
@@ -31,6 +33,7 @@ export const estado: EstadoPantalla = {
   fecha: hoy(),
   vista: "dia",
   filtro: "",
+  filtroEtiquetaId: null,
   etiquetas: [],
   funcionarios: [],
   horario: null,
@@ -100,19 +103,10 @@ export function etiquetaDeFuncionario(funcionarioId: number | null): Etiqueta | 
   return estado.etiquetas.find((e) => e.id === funcionario.etiqueta_id && e.activo) ?? null;
 }
 
-/**
- * Resultado del buscador de funcionario para una reserva o tramo:
- * `null` si no hay filtro, `true` si pertenece a un funcionario que coincide con el
- * filtro, `false` en caso contrario. Compara por funcionario registrado (`funcionario_id`).
- */
-export function coincideFiltro(item: {
-  funcionario_id: number | null;
-  nombre?: string;
-}): boolean | null {
-  const filtro = normalizarTexto(estado.filtro);
-  if (!filtro) return null;
-
-  // Si el filtro coincide exactamente con un funcionario registrado, resaltamos solo ese ID.
+function coincideFiltroFuncionario(
+  filtro: string,
+  item: { funcionario_id: number | null; nombre?: string },
+): boolean {
   const exacto = estado.funcionarios.find((f) => normalizarTexto(f.nombre) === filtro);
   if (exacto) {
     if (item.funcionario_id !== null) return item.funcionario_id === exacto.id;
@@ -124,4 +118,40 @@ export function coincideFiltro(item: {
     if (func) return normalizarTexto(func.nombre).includes(filtro);
   }
   return item.nombre ? normalizarTexto(item.nombre).includes(filtro) : false;
+}
+
+function coincideFiltroEtiqueta(
+  etiquetaId: number,
+  item: { box_id?: number; funcionario_id: number | null },
+): boolean {
+  const etiqFunc =
+    item.funcionario_id !== null
+      ? estado.funcionarios.find((f) => f.id === item.funcionario_id)?.etiqueta_id ?? null
+      : null;
+  if (etiqFunc === etiquetaId) return true;
+  if (item.box_id !== undefined) {
+    const etiqBox = estado.boxes.find((b) => b.id === item.box_id)?.etiqueta_id ?? null;
+    if (etiqBox === etiquetaId) return true;
+  }
+  return false;
+}
+
+/**
+ * Resultado de los filtros rápidos de la barra de navegación (funcionario y etiqueta)
+ * para una reserva o tramo:
+ * `null` si no hay ningún filtro activo, `true` si cumple los filtros activos,
+ * `false` en caso contrario.
+ */
+export function coincideFiltro(item: {
+  box_id?: number;
+  funcionario_id: number | null;
+  nombre?: string;
+}): boolean | null {
+  const filtro = normalizarTexto(estado.filtro);
+  const etiquetaId = estado.filtroEtiquetaId;
+  if (!filtro && etiquetaId === null) return null;
+
+  const porFunc = filtro ? coincideFiltroFuncionario(filtro, item) : true;
+  const porEtiq = etiquetaId !== null ? coincideFiltroEtiqueta(etiquetaId, item) : true;
+  return porFunc && porEtiq;
 }

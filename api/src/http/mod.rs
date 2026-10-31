@@ -21,6 +21,7 @@ pub fn crear_router(estado: AppState) -> Router {
             "/boxes",
             get(handlers::listar_boxes).post(handlers::crear_box),
         )
+        .route("/boxes/libres", get(handlers::boxes_libres))
         .route("/boxes/{id}", patch(handlers::actualizar_box))
         .route(
             "/etiquetas",
@@ -39,6 +40,7 @@ pub fn crear_router(estado: AppState) -> Router {
             "/reservas",
             get(handlers::listar_reservas).post(handlers::crear_reserva),
         )
+        .route("/reservas/buscar", get(handlers::buscar_reservas))
         .route("/reservas/lote", post(handlers::crear_lote))
         .route(
             "/reservas/{id}",

@@ -6,8 +6,8 @@ Una sola pantalla, textos en español, acciones de un clic (RNF-11).
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ Gestión de Boxes     ● Conectado a PC-SOME [Exportar][Funcionarios][Etiquetas][⚙ Boxes]│
-│ [Día|Semana] [◄ Anterior] [Hoy] [Siguiente ►] [ 22/10/2026 📅 ]  [Buscar funcionario…] │
+│ Gestión de Boxes ● Conectado a PC-SOME [Buscar][Exportar][Funcionarios][Etiquetas][⚙ Boxes]│
+│ [Día|Semana] [◄ Anterior] [Hoy] [Siguiente ►] [ 22/10/2026 📅 ] [Buscar funcionario…][Todas las etiquetas▾]│
 │ [Enfermería] [Cirugía Menor]                                                           │
 ├────────┬──────────────── MAÑANA ───────────────┬──────────── TARDE ────────────────────┤
 │ Box    │ 08:00  09:00  10:00  11:00  12:00 13:00│ 14:00  15:00  16:00 …                 │
@@ -48,17 +48,22 @@ viernes con dos columnas por día, **AM** y **PM**, como la planilla:
   día: reemplaza la hoja "BOX DISPONIBLE" que el CESFAM armaba a mano.
 - **Anterior / Siguiente** avanzan una semana.
 
-## Buscador de funcionario
+## Filtros rápidos y búsqueda (RF-15)
 
-El campo **Buscar funcionario…** (a la derecha) resalta en ambas vistas las reservas del
-funcionario buscado (comparando por funcionario registrado, sin distinguir tildes ni
-mayúsculas) y atenúa el resto: responde "¿dónde está Verónica esta semana?". Sugiere los
-funcionarios activos registrados.
+- El campo **Buscar funcionario…** (a la derecha de la barra de navegación) resalta en ambas
+  vistas las reservas del funcionario buscado (comparando por funcionario registrado, sin
+  distinguir tildes ni mayúsculas) y atenúa el resto: responde "¿dónde está Verónica esta
+  semana?". Sugiere los funcionarios activos registrados.
+- A su lado, el selector **Todas las etiquetas** resalta (y atenúa el resto) las reservas cuyo
+  funcionario o box tenga la etiqueta seleccionada, en vista Día y Semana.
+- El botón **Buscar** en la barra superior (o el atajo `Ctrl+F` / `⌘F`) abre un modal con dos
+  pestañas: **Reservas** y **Box libre**.
 
 ## Modales
 
 | Modal | Campos / contenido | Botones |
 |---|---|---|
+| Buscar | Dos pestañas (`aria-pressed`): **Reservas** (funcionario opcional, etiqueta opcional, box opcional, rango desde/hasta por defecto hoy a 4 semanas; resultados agrupados en tramos con fecha corta, horario, box y funcionario con chip; clic salta a ese día en vista Día) y **Box libre** (fecha visible por defecto, horario desde/hasta con atajos *Mañana · Tarde · Día completo*, etiqueta opcional; lista de boxes libres con chip y botón *Reservar* que abre el modal de reserva con datos precargados) | Buscar · Reservar · Cerrar |
 | Reservar | Box y fecha (solo lectura); **Horario** desde/hasta con atajos *Mañana · Tarde · Día completo*; **Nombre del funcionario** (buscador de funcionarios registrados activos; muestra el chip de color de su etiqueta; si no existe ofrece registrarlo en línea); Motivo (opcional); *Repetir cada semana hasta el…*; resumen | Reservar · (Reservar solo los libres) · (Registrar «nombre») · Cerrar |
 | Detalle | Box, fecha, horario (desde – hasta), funcionario, etiqueta (si tiene), motivo, creada el… | Cancelar reserva — o, si es parte de una serie, *Cancelar solo este día* · *Cancelar este día y los siguientes* (piden confirmación) · Cerrar |
 | Funcionarios | Buscador por nombre arriba; lista de funcionarios con nombre, selector de etiqueta ("Sin etiqueta" + activas con muestra de color) y casilla "Activo"; abajo "Nuevo funcionario" | Guardar · Agregar · Cerrar |
@@ -159,7 +164,7 @@ app/
 │   ├── fechas.ts             utilidades de fechas sin desfase UTC
 │   ├── tramos.ts             agrupación de bloques contiguos en barras
 │   ├── dom.ts                creación segura de nodos con textContent
-│   ├── componentes/          grilla.ts, semana.ts, reservar.ts, funcionarios.ts, etiquetas.ts, modales.ts, formulario.ts, dialogo.ts, aviso.ts, conexion.ts
+│   ├── componentes/          grilla.ts, semana.ts, buscar.ts, reservar.ts, funcionarios.ts, etiquetas.ts, modales.ts, formulario.ts, dialogo.ts, aviso.ts, conexion.ts
 │   └── estilos.css
 └── src-tauri/                backend (Rust)
     ├── tauri.conf.json
