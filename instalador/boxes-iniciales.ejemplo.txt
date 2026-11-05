@@ -2,10 +2,10 @@
 #
 # Para usar este archivo:
 # 1. Copia o renombra este archivo como "boxes-iniciales.txt" en esta misma carpeta.
-# 2. Edita los nombres segun los boxes reales del establecimiento (un nombre por linea).
-# 3. Al ejecutar instalar.bat, los boxes se cargaran automaticamente si el sistema esta vacio.
-# Las lineas vacias o que comienzan con '#' son ignoradas.
+# 2. Edita los nombres según los boxes reales del establecimiento (un nombre por línea).
+# 3. Al ejecutar instalar.bat, los boxes se cargarán automáticamente si el sistema está vacío.
+# Las líneas vacías o que comienzan con '#' son ignoradas.
 
 # Box 1 Dental
-# Box 2 Medico
-# Box 3 Ginecologico
+# Box 2 Médico
+# Box 3 Ginecológico

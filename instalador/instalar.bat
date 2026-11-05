@@ -10,7 +10,7 @@ if errorlevel 1 goto error_ruta_unc
 net session >nul 2>&1
 if errorlevel 1 goto error_permisos_admin
 
-:: Carpeta de datos compartida con la configuracion de la API
+:: Carpeta de datos compartida con la configuración de la API
 set "DESTINO=%ProgramData%\GestionBox"
 
 :: Comprobar presencia de ejecutables requeridos
@@ -18,6 +18,7 @@ if not exist "%~dp0gestion-box-api.exe" goto error_falta_api
 if not exist "%~dp0nssm.exe" goto error_falta_nssm
 
 :: Crear carpetas de datos y respaldos
+echo Creando carpetas en %DESTINO%...
 if not exist "%DESTINO%" mkdir "%DESTINO%"
 if errorlevel 1 goto error_crear_carpetas
 if not exist "%DESTINO%\backups" mkdir "%DESTINO%\backups"
@@ -35,6 +36,7 @@ echo Deteniendo servicio existente para actualizar...
 :: Copiar ejecutables con reintentos si origen y destino son distintos
 if /i "%~dp0"=="%DESTINO%\" goto saltar_copia
 
+echo Copiando archivos...
 set "INTENTOS_COPIA=0"
 
 :bucle_copia
@@ -67,6 +69,7 @@ exit /b 1
 :copia_exitosa
 
 :: Configurar servicio con NSSM usando la copia del destino
+echo Registrando el servicio GestionBoxAPI...
 if "%SERVICIO_EXISTE%"=="1" goto servicio_existente_configurar
 "%DESTINO%\nssm.exe" install GestionBoxAPI "%DESTINO%\gestion-box-api.exe" >nul
 if errorlevel 1 goto error_instalacion_servicio
@@ -108,15 +111,15 @@ if errorlevel 1 goto error_firewall_http
 netsh advfirewall firewall add rule name="GestionBox UDP" dir=in action=allow protocol=UDP localport=8001 profile=private,domain >nul 2>&1
 if errorlevel 1 goto error_firewall_udp
 
-:: Advertencia de perfil de red publica
+:: Advertencia de perfil de red pública
 powershell -NoProfile -Command "try { if (Get-NetConnectionProfile | Where-Object NetworkCategory -eq 'Public') { exit 1 } else { exit 0 } } catch { exit 0 }" >nul 2>&1
 if errorlevel 1 goto advertencia_red_publica
 goto red_verificada
 
 :advertencia_red_publica
-echo Advertencia: Se detecto una conexion de red configurada como Publica
-echo Los demas computadores no podran conectarse a este servidor
-echo Cambia el perfil de red a Privada en la configuracion de Windows
+echo Advertencia: Se detectó una conexión de red configurada como Pública
+echo Los demás computadores no podrán conectarse a este servidor
+echo Cámbialo en Configuración, Red e Internet, propiedades de la conexión, Perfil de red: Privada
 
 :red_verificada
 :: Iniciar el servicio y verificar endpoint de salud
@@ -143,11 +146,11 @@ if not exist "%~dp0cargar-boxes.ps1" goto aviso_falta_ps1
 
 echo Cargando boxes iniciales desde boxes-iniciales.txt...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cargar-boxes.ps1" -Archivo "%~dp0boxes-iniciales.txt"
-if errorlevel 1 echo Advertencia: Ocurrio un problema al cargar los boxes iniciales
+if errorlevel 1 echo Advertencia: Ocurrió un problema al cargar los boxes iniciales
 goto fin_carga_boxes
 
 :aviso_falta_ps1
-echo Advertencia: Se encontro boxes-iniciales.txt pero no existe cargar-boxes.ps1
+echo Advertencia: Se encontró boxes-iniciales.txt pero no existe cargar-boxes.ps1
 
 :fin_carga_boxes
 echo Instalación completada
@@ -162,7 +165,7 @@ if errorlevel 1 goto fallo_ajuste_nssm
 exit /b 0
 
 :fallo_ajuste_nssm
-echo Error al configurar el parametro %1 en NSSM
+echo Error al configurar el parámetro %1 en NSSM
 exit /b 1
 
 :error_ruta_unc
@@ -194,21 +197,25 @@ exit /b 1
 
 :error_instalacion_servicio
 echo Error: No se pudo registrar el servicio GestionBoxAPI con NSSM
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 pause
 exit /b 1
 
 :error_ajustar_nssm
-echo Error: Fallo la configuracion de los parametros de NSSM
+echo Error: Falló la configuración de los parámetros de NSSM
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 pause
 exit /b 1
 
 :error_firewall_http
 echo Error: No se pudo crear la regla de firewall para el puerto 8000 TCP
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 pause
 exit /b 1
 
 :error_firewall_udp
 echo Error: No se pudo crear la regla de firewall para el puerto 8001 UDP
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 pause
 exit /b 1
 
@@ -217,6 +224,6 @@ echo Error: El servicio no responde en http://localhost:8000/health tras varios 
 echo Revisa el archivo api.log en %DESTINO%
 echo Revisa el archivo servicio.log en %DESTINO%
 echo Revisa el estado del servicio en services.msc
-echo Comprueba que ningun otro programa este usando el puerto 8000
+echo Comprueba que ningún otro programa esté usando el puerto 8000
 pause
 exit /b 1

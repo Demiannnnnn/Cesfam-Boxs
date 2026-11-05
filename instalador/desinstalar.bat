@@ -25,7 +25,7 @@ if exist "%DESTINO%\nssm.exe" set "NSSM_EXE=%DESTINO%\nssm.exe"
 if not defined NSSM_EXE if exist "%~dp0nssm.exe" set "NSSM_EXE=%~dp0nssm.exe"
 
 if defined NSSM_EXE goto usar_nssm
-echo No se encontro nssm.exe. Deteniendo y eliminando mediante sc.exe...
+echo No se encontró nssm.exe. Deteniendo y eliminando mediante sc.exe...
 sc stop GestionBoxAPI >nul 2>&1
 ping -n 3 127.0.0.1 >nul
 sc delete GestionBoxAPI >nul 2>&1
@@ -40,7 +40,7 @@ echo Esperando a que el sistema libere los recursos del servicio...
 ping -n 3 127.0.0.1 >nul
 
 sc query GestionBoxAPI >nul 2>&1
-if not errorlevel 1 echo Advertencia: El servicio aun figura en el sistema. Cierra services.msc si esta abierto para completar la eliminacion
+if not errorlevel 1 echo Advertencia: El servicio aún figura en el sistema. Cierra services.msc si está abierto para completar la eliminación
 
 :servicio_no_existe
 
@@ -49,7 +49,7 @@ echo Eliminando reglas de firewall...
 netsh advfirewall firewall delete rule name="GestionBox HTTP" >nul 2>&1
 netsh advfirewall firewall delete rule name="GestionBox UDP" >nul 2>&1
 
-:: Eliminar unicamente los ejecutables gestion-box-api.exe y nssm.exe
+:: Eliminar únicamente los ejecutables gestion-box-api.exe y nssm.exe
 echo Eliminando ejecutables del servidor...
 set "INTENTOS_DEL=0"
 
@@ -72,7 +72,7 @@ goto finalizar_desinstalacion
 echo Ejecutables eliminados correctamente
 
 :finalizar_desinstalacion
-echo Desinstalacion completada
+echo Desinstalación completada
 echo Los datos de la base de datos, respaldos y logs se conservan en %DESTINO%
 pause
 exit /b 0
