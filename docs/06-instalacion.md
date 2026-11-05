@@ -86,7 +86,7 @@ cargo build -p gestion-box-api --release
 cd app; npm ci; npm run tauri build
 ```
 
-Para compilar la app sin conexión a internet (modo offline):
+Para generar el instalador destinado a PC sin internet, que incluye el instalador de WebView2 (el archivo resulta más grande):
 
 ```powershell
 npm run tauri build -- --config src-tauri/tauri.offline.conf.json

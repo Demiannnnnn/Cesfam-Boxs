@@ -29,7 +29,7 @@ Menú Inicio → **Gestion de Boxes**. Se abrirá la ventana **Gestión de Boxes
 
 ## Cambiar de día
 
-- **◄ Anterior** / **Siguiente ►**: avanza o retrocede un día.
+- **◄ Anterior** / **Siguiente ►**: retrocede o avanza un día.
 - **Hoy**: vuelve de inmediato al día actual.
 - **Selector de fecha** (junto a «Siguiente ►»): elige cualquier fecha en el calendario.
 
