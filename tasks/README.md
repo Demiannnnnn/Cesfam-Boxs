@@ -88,17 +88,17 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
-| [T-4.1](fase-4/T-4.1-release-sin-consola.md) | API release con `windows_subsystem = "windows"` | RNF-02 | T-2.11 | pendiente |
-| [T-4.2](fase-4/T-4.2-instalar-bat.md) | `instalar.bat`: carpeta, NSSM, firewall | RNF-01, RNF-03, RNF-12 | T-4.1 | pendiente |
-| [T-4.3](fase-4/T-4.3-desinstalar-bat.md) | `desinstalar.bat` (opcional) | — | T-4.2 | pendiente |
-| [T-4.4](fase-4/T-4.4-instalador-app.md) | Instalador de la app Tauri (.msi) | RNF-13 | T-3.9 | pendiente |
+| [T-4.1](fase-4/T-4.1-release-sin-consola.md) | API release con `windows_subsystem = "windows"` | RNF-02 | T-2.11 | implementada — validación manual pendiente |
+| [T-4.2](fase-4/T-4.2-instalar-bat.md) | `instalar.bat`: carpeta, NSSM, firewall | RNF-01, RNF-03, RNF-12 | T-4.1 | implementada — validación manual pendiente |
+| [T-4.3](fase-4/T-4.3-desinstalar-bat.md) | `desinstalar.bat` (opcional) | — | T-4.2 | implementada — validación manual pendiente |
+| [T-4.4](fase-4/T-4.4-instalador-app.md) | Instalador de la app Tauri (.msi) | RNF-13 | T-3.9 | implementada — validación manual pendiente |
 
 ### Fase 5 — Pruebas y entrega
 
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
 | [T-5.1](fase-5/T-5.1-pruebas-aceptacion.md) | Ejecutar las pruebas de aceptación | Todos | T-4.2, T-4.4 | bloqueada |
-| [T-5.2](fase-5/T-5.2-manual-funcionario.md) | Manual de una página para funcionarios | RNF-11 | T-3.9 | pendiente |
-| [T-5.3](fase-5/T-5.3-guia-instalacion.md) | Guía de instalación y solución de problemas | RNF-12 | T-4.2 | pendiente |
+| [T-5.2](fase-5/T-5.2-manual-funcionario.md) | Manual de una página para funcionarios | RNF-11 | T-3.9 | implementada — validación manual pendiente |
+| [T-5.3](fase-5/T-5.3-guia-instalacion.md) | Guía de instalación y solución de problemas | RNF-12 | T-4.2 | implementada — validación manual pendiente |
 | [T-5.4](fase-5/T-5.4-instalacion-demo.md) | Instalar en el CESFAM y demostración | — | T-5.1 | bloqueada |
 | [T-5.5](fase-5/T-5.5-acta-entrega.md) | Firmar el acta de entrega | — | T-5.4 | bloqueada |

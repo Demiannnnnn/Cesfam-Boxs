@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 2026-10-01.
+Última actualización: 2026-11-05.
 
 ## Resumen
 
@@ -10,8 +10,8 @@
 | 1 — Proyecto base | completada (T-1.1, T-1.2, T-1.3) |
 | 2 — API | completada: 64 tests + `api/scripts/humo.sh` OK |
 | 3 — App | implementada: 23 tests Rust + `tsc` OK; verificada a mano la grilla conectada por localhost. Falta validar modales/refresco/broadcast a mano (ver cada T-3.x) |
-| 4 — Instalación | pendiente |
-| 5 — Entrega | borradores de manual y guía en `docs/` |
+| 4 — Instalación | implementada, validación manual pendiente: scripts y configuración listos; falta generar el `.msi` y probar en Windows (ver cada T-4.x) |
+| 5 — Entrega | manual y guía implementados, validación manual pendiente, PDF en `docs/pdf/`; T-5.1, T-5.4 y T-5.5 bloqueadas (terreno) |
 
 ## Ramas activas
 
@@ -20,6 +20,8 @@
 | `dev/documentacion-base` | README, AGENTS.md, docs/, .ai-context/, tasks/ |
 | `dev/fase-1-2-api` | workspace, crate shared, API completa (sobre `dev/documentacion-base`) |
 | `dev/fase-3-app` | app Tauri completa (sobre `dev/fase-1-2-api`) |
+| `dev/fase-4-instalacion` | `instalador/`, CRT estático, configuración offline del `.msi` |
+| `dev/fase-5-documentacion` | manual, guía y PDF (sobre `dev/fase-4-instalacion`) |
 
 ## Supuestos vigentes (hasta cerrar fase 0)
 
@@ -28,4 +30,4 @@
 
 ## Próximo paso
 
-Validaciones manuales de fase 3; luego fase 4 (instalar.bat, .msi) en Windows.
+Validaciones manuales de fases 3 y 4 en Windows: compilar los entregables, generar el `.msi` y probar `instalar.bat` en una VM.

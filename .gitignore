@@ -7,3 +7,5 @@ app/src-tauri/target/
 app/src-tauri/gen/
 *.db-wal
 *.db-shm
+/instalador/*.exe
+/instalador/boxes-iniciales.txt

@@ -95,7 +95,7 @@ Cesfam-Boxs/
 ├── api/                   ← API Axum + SQLite (gestion-box-api.exe)
 ├── app/                   ← App de escritorio Tauri (cliente)
 ├── shared/                ← tipos de dominio compartidos
-├── instalador/            ← instalar.bat, desinstalar.bat (fase 4, aún no creada)
+├── instalador/            ← instalar.bat, desinstalar.bat, cargar-boxes.ps1
 ├── docs/                  ← documentación para personas
 ├── .ai-context/           ← contexto condensado para agentes de IA
 └── tasks/                 ← tareas con pasos de ejecución y validaciones
