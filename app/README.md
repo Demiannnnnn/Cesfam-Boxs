@@ -9,7 +9,8 @@ App de escritorio instalada en todos los PCs (incluido el servidor).
 npm install
 npm run tauri dev      # requiere la API corriendo (ver README raíz)
 npm run check          # tipos TypeScript
-npm run tauri build    # instalador .msi (en Windows)
+npm run tauri build    # instalador .msi con descarga de WebView2 (por defecto)
+npm run tauri build -- --config src-tauri/tauri.offline.conf.json # instalador .msi con WebView2 offline (PCs sin internet)
 ```
 
 - `src/` — interfaz en TypeScript sin framework (solo `invoke`, nunca red directa).
