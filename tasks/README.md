@@ -88,10 +88,10 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
-| [T-4.1](fase-4/T-4.1-release-sin-consola.md) | API release con `windows_subsystem = "windows"` | RNF-02 | T-2.11 | pendiente |
-| [T-4.2](fase-4/T-4.2-instalar-bat.md) | `instalar.bat`: carpeta, NSSM, firewall | RNF-01, RNF-03, RNF-12 | T-4.1 | pendiente |
-| [T-4.3](fase-4/T-4.3-desinstalar-bat.md) | `desinstalar.bat` (opcional) | — | T-4.2 | pendiente |
-| [T-4.4](fase-4/T-4.4-instalador-app.md) | Instalador de la app Tauri (.msi) | RNF-13 | T-3.9 | pendiente |
+| [T-4.1](fase-4/T-4.1-release-sin-consola.md) | API release con `windows_subsystem = "windows"` | RNF-02 | T-2.11 | implementada — validación manual pendiente |
+| [T-4.2](fase-4/T-4.2-instalar-bat.md) | `instalar.bat`: carpeta, NSSM, firewall | RNF-01, RNF-03, RNF-12 | T-4.1 | implementada — validación manual pendiente |
+| [T-4.3](fase-4/T-4.3-desinstalar-bat.md) | `desinstalar.bat` (opcional) | — | T-4.2 | implementada — validación manual pendiente |
+| [T-4.4](fase-4/T-4.4-instalador-app.md) | Instalador de la app Tauri (.msi) | RNF-13 | T-3.9 | implementada — validación manual pendiente |
 
 ### Fase 5 — Pruebas y entrega
 

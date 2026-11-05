@@ -51,3 +51,13 @@ RNF-10 exige ese nombre. → Appender no rotativo; al arrancar, si `api.log` > 1
 ## ADR-013 · 2026-10-01 · aceptada — Carpeta de datos configurable
 → `GESTIONBOX_DATA_DIR` sobrescribe `C:\ProgramData\GestionBox`; fuera de Windows el defecto
 es `./datos-dev`. → Desarrollo y tests en Linux sin tocar rutas de producción.
+
+## ADR-014 · 2026-11-05 · aceptada — NSSM 2.24-101 con `AppNoConsole`
+NSSM 2.24 estable falla al arrancar servicios en Windows 10 1703 o posterior, según nssm.cc. → Usar la compilación
+2.24-101-g897c7ad o posterior, y además `AppNoConsole 1`. → El exe no usa consola, así que el ajuste no quita nada.
+Sin consola NSSM termina el proceso al detenerlo: puede quedar `-wal` junto a la base, y al restaurar un respaldo
+hay que apartarlo.
+
+## ADR-015 · 2026-11-05 · aceptada — CRT estático en Windows
+→ `.cargo/config.toml` con `+crt-static` para MSVC. → El exe no depende de `VCRUNTIME140.dll`, ausente en un
+Windows limpio (RNF-05).
