@@ -1,0 +1,5 @@
+# Enlace estático del CRT de C/C++ en Windows (MSVC).
+# Sin esto el exe depende de VCRUNTIME140.dll, que no viene en un Windows limpio
+# (V3 de T-4.1, AGENTS §5 "sin runtimes externos").
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]
