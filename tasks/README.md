@@ -98,7 +98,7 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
 | [T-5.1](fase-5/T-5.1-pruebas-aceptacion.md) | Ejecutar las pruebas de aceptación | Todos | T-4.2, T-4.4 | bloqueada |
-| [T-5.2](fase-5/T-5.2-manual-funcionario.md) | Manual de una página para funcionarios | RNF-11 | T-3.9 | pendiente |
-| [T-5.3](fase-5/T-5.3-guia-instalacion.md) | Guía de instalación y solución de problemas | RNF-12 | T-4.2 | pendiente |
+| [T-5.2](fase-5/T-5.2-manual-funcionario.md) | Manual de una página para funcionarios | RNF-11 | T-3.9 | implementada — validación manual pendiente |
+| [T-5.3](fase-5/T-5.3-guia-instalacion.md) | Guía de instalación y solución de problemas | RNF-12 | T-4.2 | implementada — validación manual pendiente |
 | [T-5.4](fase-5/T-5.4-instalacion-demo.md) | Instalar en el CESFAM y demostración | — | T-5.1 | bloqueada |
 | [T-5.5](fase-5/T-5.5-acta-entrega.md) | Firmar el acta de entrega | — | T-5.4 | bloqueada |

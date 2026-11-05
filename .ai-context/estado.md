@@ -11,7 +11,7 @@
 | 2 — API | completada: 64 tests + `api/scripts/humo.sh` OK |
 | 3 — App | implementada: 23 tests Rust + `tsc` OK; verificada a mano la grilla conectada por localhost. Falta validar modales/refresco/broadcast a mano (ver cada T-3.x) |
 | 4 — Instalación | implementada, validación manual pendiente: scripts y configuración listos; falta generar el `.msi` y probar en Windows (ver cada T-4.x) |
-| 5 — Entrega | borradores de manual y guía en `docs/` |
+| 5 — Entrega | manual y guía implementados, validación manual pendiente, PDF en `docs/pdf/`; T-5.1, T-5.4 y T-5.5 bloqueadas (terreno) |
 
 ## Ramas activas
 
@@ -21,6 +21,7 @@
 | `dev/fase-1-2-api` | workspace, crate shared, API completa (sobre `dev/documentacion-base`) |
 | `dev/fase-3-app` | app Tauri completa (sobre `dev/fase-1-2-api`) |
 | `dev/fase-4-instalacion` | `instalador/`, CRT estático, configuración offline del `.msi` |
+| `dev/fase-5-documentacion` | manual, guía y PDF (sobre `dev/fase-4-instalacion`) |
 
 ## Supuestos vigentes (hasta cerrar fase 0)
 
