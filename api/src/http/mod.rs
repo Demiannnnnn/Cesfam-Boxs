@@ -17,6 +17,7 @@ use crate::estado::AppState;
 pub fn crear_router(estado: AppState) -> Router {
     Router::new()
         .route("/health", get(handlers::salud))
+        .route("/respaldo", get(handlers::descargar_respaldo))
         .route(
             "/boxes",
             get(handlers::listar_boxes).post(handlers::crear_box),

@@ -60,6 +60,7 @@ cambia la etiqueta; `"etiqueta_id": null` (`Some(None)`) la quita; `"etiqueta_id
 | POST | `/reservas/lote` | `NuevoLote` | 201 `ResultadoLote` | 400, 404, 409 bloque_ocupado, 422 box_inactivo \| funcionario_inactivo |
 | DELETE | `/reservas/{id}` | — | 204 | 404 |
 | DELETE | `/reservas/grupo/{grupo}` | `?desde=` | 200 `ResultadoCancelacion` | 400, 404 |
+| GET | `/respaldo` | — | 200 SQLite binario (`application/octet-stream`) | 500 |
 
 ## Validaciones
 
@@ -76,6 +77,7 @@ cambia la etiqueta; `"etiqueta_id": null` (`Some(None)`) la quita; `"etiqueta_id
 - Lote: `desde <= hasta`; fechas sin repetir (se ordenan). Una transacción: sin
   `omitir_ocupados` es todo o nada (409); con él crea los libres y lista los ocupados
   (409 si no quedó ninguno). `grupo` = id de la primera reserva creada.
+- Respaldo: `GET /respaldo` entrega una copia consistente de la base SQLite para la copia diaria de los equipos de escritura (RF-18, ADR-021) sin autenticación (ADR-020). Cabecera `Content-Disposition: attachment; filename="gestion-box-AAAAMMDD-HHMMSS.db"`. El temporal en el servidor se borra antes de enviar la respuesta.
 
 ## Mensajes fijos
 

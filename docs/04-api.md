@@ -226,6 +226,20 @@ ninguna. `desde` es obligatorio.
 
 `204` sin cuerpo. `404 no_encontrado` si ya no existe (por ejemplo, otro PC la canceló antes).
 
+### `GET /respaldo` — copia consistente de la base (RF-18, ADR-020, ADR-021)
+
+Devuelve una copia SQLite completa y consistente de la base para la copia diaria que
+solicitan los equipos en modo `escritura` (ADR-021). Se genera en el servidor mediante
+`VACUUM INTO` a un archivo temporal único que se lee a memoria y se elimina antes de enviar
+la respuesta (no quedan archivos temporales en el disco del servidor tras completarse).
+
+- Sin autenticación (ADR-020).
+- La API registra en su log cada entrega con la IP del solicitante.
+- Respuesta `200` con `Content-Type: application/octet-stream` y
+  `Content-Disposition: attachment; filename="gestion-box-AAAAMMDD-HHMMSS.db"` (hora local).
+
+Errores: `500 error_interno` si ocurre un error al generar o leer la copia.
+
 ## Esquema SQLite
 
 ```sql
@@ -311,4 +325,5 @@ curl -s "localhost:8000/reservas?fecha=2026-10-01"
 curl -s -X POST localhost:8000/reservas -H 'content-type: application/json' \
      -d '{"box_id":1,"fecha":"2026-10-01","bloque":4,"funcionario_id":1}'
 curl -s -i -X DELETE localhost:8000/reservas/1
+curl -s localhost:8000/respaldo -o respaldo.db
 ```
