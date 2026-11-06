@@ -162,6 +162,21 @@ impl ClienteApi {
         Self::json(self.http.get(self.url("/health"))).await
     }
 
+    /// `GET /respaldo` (RF-18, ADR-021).
+    ///
+    /// Descarga la copia consistente de la base de datos entregada por el servidor.
+    /// Utiliza un tiempo de espera de 120 segundos para esta petición debido a que
+    /// la generación y descarga del archivo completo puede demorar más que las consultas normales.
+    pub async fn descargar_respaldo(&self) -> Result<Vec<u8>, ErrorCliente> {
+        let peticion = self
+            .http
+            .get(self.url("/respaldo"))
+            .timeout(Duration::from_secs(120));
+        let respuesta = Self::enviar(peticion).await?;
+        let bytes = respuesta.bytes().await.map_err(ErrorCliente::from)?;
+        Ok(bytes.to_vec())
+    }
+
     /// `GET /boxes` (RF-01, RF-06, RF-14).
     pub async fn listar_boxes(
         &self,
