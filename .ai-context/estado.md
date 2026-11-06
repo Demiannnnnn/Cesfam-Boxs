@@ -14,7 +14,7 @@
 | 5 — Entrega | manual y guía implementados, validación manual pendiente, PDF en `docs/pdf/`; T-5.1, T-5.4 y T-5.5 bloqueadas (terreno) |
 | 6 — Grilla agenda, rangos y semana | implementada (ADR-014, ADR-015, ADR-016) |
 | 7 — Funcionarios, etiquetas y búsqueda | en curso: T-7.1 completada, T-7.2 y T-7.3 implementadas (validación manual pendiente) |
-| 8 — Varios equipos | en curso (ADR-020 a ADR-022, T-8.1 a T-8.7): T-8.3 completada, T-8.1, T-8.2, T-8.4 y T-8.5 implementadas (validación manual pendiente) |
+| 8 — Varios equipos | en curso (ADR-020 a ADR-022, T-8.1 a T-8.7): T-8.3 completada; T-8.1, T-8.2, T-8.4 y T-8.5 implementadas (validación manual pendiente); T-8.6 y T-8.7 pendientes |
 
 ## Ramas activas
 

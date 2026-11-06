@@ -22,6 +22,10 @@ Una pantalla: grilla día × (boxes activos en columnas, 24 bloques de 30 min en
 - Un ejecutable por componente; `rusqlite` con feature `bundled`.
 - SQL siempre parametrizado.
 - Descubrimiento: guardada → `/health` → broadcast UDP → manual; < 5 s.
+- Tres modos de equipo (`servidor`, `escritura`, `lectura`), elegidos en asistente al primer inicio. Al menos dos de escritura contando el servidor ([ADR-020](decisiones.md#adr-020--2026-11-06--aceptada--tres-modos-de-equipo-elegidos-al-instalar)).
+- Copia diaria automática en equipos de escritura (`GET /respaldo`), en `C:\ProgramData\GestionBox\copias-del-servidor\`, últimas 7 ([ADR-021](decisiones.md#adr-021--2026-11-06--aceptada--copia-diaria-de-la-base-en-los-equipos-de-escritura)).
+- Servidor de reemplazo: promoción de emergencia oculta (`Ctrl+Alt+Shift+S`, clave `sum41rules`), niega si hay servidor vivo por UDP ([ADR-022](decisiones.md#adr-022--2026-11-06--aceptada--promoción-a-servidor-oculta-solo-si-el-servidor-murió)).
+- Servidor no se suspende ni hiberna con corriente alterna (`powercfg`, RNF-14).
 - Errores de red → mensaje en español que dice qué revisar.
 - Todo en español (docs, UI, commits, comentarios).
 
