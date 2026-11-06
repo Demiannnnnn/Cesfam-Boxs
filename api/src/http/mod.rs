@@ -6,7 +6,7 @@ mod handlers;
 
 pub use error::ErrorApi;
 
-use axum::routing::{get, patch};
+use axum::routing::{get, patch, post};
 use axum::Router;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
@@ -21,14 +21,34 @@ pub fn crear_router(estado: AppState) -> Router {
             "/boxes",
             get(handlers::listar_boxes).post(handlers::crear_box),
         )
+        .route("/boxes/libres", get(handlers::boxes_libres))
         .route("/boxes/{id}", patch(handlers::actualizar_box))
+        .route(
+            "/etiquetas",
+            get(handlers::listar_etiquetas).post(handlers::crear_etiqueta),
+        )
+        .route("/etiquetas/{id}", patch(handlers::actualizar_etiqueta))
+        .route(
+            "/funcionarios",
+            get(handlers::listar_funcionarios).post(handlers::crear_funcionario),
+        )
+        .route(
+            "/funcionarios/{id}",
+            patch(handlers::actualizar_funcionario),
+        )
         .route(
             "/reservas",
             get(handlers::listar_reservas).post(handlers::crear_reserva),
         )
+        .route("/reservas/buscar", get(handlers::buscar_reservas))
+        .route("/reservas/lote", post(handlers::crear_lote))
         .route(
             "/reservas/{id}",
             axum::routing::delete(handlers::cancelar_reserva),
+        )
+        .route(
+            "/reservas/grupo/{grupo}",
+            axum::routing::delete(handlers::cancelar_grupo),
         )
         .fallback(handlers::ruta_inexistente)
         // CORS permisivo (RNF-07): la API solo es accesible en la red local, no hay

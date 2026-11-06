@@ -14,6 +14,8 @@ pub enum CodigoError {
     BloqueOcupado,
     NombreDuplicado,
     BoxInactivo,
+    FuncionarioInactivo,
+    EtiquetaInactiva,
     ErrorInterno,
 }
 

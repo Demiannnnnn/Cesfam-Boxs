@@ -1,11 +1,14 @@
-//! Cliente HTTP tipado de la API, con timeouts explícitos (RF-03 – RF-08).
+//! Cliente HTTP tipado de la API, con timeouts explícitos (RF-03 – RF-08, RF-13 – RF-15).
 
 use std::error::Error as _;
 use std::time::Duration;
 
 use gestion_box_shared::descubrimiento::PUERTO_HTTP_POR_DEFECTO;
 use gestion_box_shared::{
-    BoxAtencion, CambiosBox, ErrorRespuesta, EstadoSalud, Fecha, NuevaReserva, NuevoBox, Reserva,
+    BoxAtencion, CambiosBox, CambiosEtiqueta, CambiosFuncionario, ConsultaBoxesLibres,
+    ConsultaBuscarReservas, ErrorRespuesta, EstadoSalud, Etiqueta, Fecha, Funcionario,
+    NuevaEtiqueta, NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote, Reserva,
+    ResultadoCancelacion, ResultadoLote,
 };
 use reqwest::{Client, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
@@ -159,7 +162,7 @@ impl ClienteApi {
         Self::json(self.http.get(self.url("/health"))).await
     }
 
-    /// `GET /boxes`.
+    /// `GET /boxes` (RF-01, RF-06, RF-14).
     pub async fn listar_boxes(
         &self,
         incluir_inactivos: bool,
@@ -171,26 +174,88 @@ impl ClienteApi {
         Self::json(peticion).await
     }
 
-    /// `POST /boxes`.
+    /// `POST /boxes` (RF-06, RF-14).
     pub async fn crear_box(&self, nuevo: &NuevoBox) -> Result<BoxAtencion, ErrorCliente> {
         Self::json(self.http.post(self.url("/boxes")).json(nuevo)).await
     }
 
-    /// `PATCH /boxes/{id}`.
+    /// `PATCH /boxes/{id}` (RF-06, RF-14).
     pub async fn actualizar_box(
         &self,
         id: i64,
         cambios: &CambiosBox,
     ) -> Result<BoxAtencion, ErrorCliente> {
-        Self::json(
-            self.http
-                .patch(self.url(&format!("/boxes/{id}")))
-                .json(cambios),
-        )
-        .await
+        let url = self.url(&format!("/boxes/{id}"));
+        Self::json(self.http.patch(url).json(cambios)).await
     }
 
-    /// `GET /reservas?fecha=`.
+    /// `GET /boxes/libres` (RF-15).
+    pub async fn boxes_libres(
+        &self,
+        consulta: &ConsultaBoxesLibres,
+    ) -> Result<Vec<BoxAtencion>, ErrorCliente> {
+        let peticion = self.http.get(self.url("/boxes/libres")).query(consulta);
+        Self::json(peticion).await
+    }
+
+    /// `GET /etiquetas` (RF-14).
+    pub async fn listar_etiquetas(
+        &self,
+        incluir_inactivos: bool,
+    ) -> Result<Vec<Etiqueta>, ErrorCliente> {
+        let peticion = self
+            .http
+            .get(self.url("/etiquetas"))
+            .query(&[("incluir_inactivos", incluir_inactivos)]);
+        Self::json(peticion).await
+    }
+
+    /// `POST /etiquetas` (RF-14).
+    pub async fn crear_etiqueta(&self, nueva: &NuevaEtiqueta) -> Result<Etiqueta, ErrorCliente> {
+        Self::json(self.http.post(self.url("/etiquetas")).json(nueva)).await
+    }
+
+    /// `PATCH /etiquetas/{id}` (RF-14).
+    pub async fn actualizar_etiqueta(
+        &self,
+        id: i64,
+        cambios: &CambiosEtiqueta,
+    ) -> Result<Etiqueta, ErrorCliente> {
+        let url = self.url(&format!("/etiquetas/{id}"));
+        Self::json(self.http.patch(url).json(cambios)).await
+    }
+
+    /// `GET /funcionarios` (RF-13, RF-14).
+    pub async fn listar_funcionarios(
+        &self,
+        incluir_inactivos: bool,
+    ) -> Result<Vec<Funcionario>, ErrorCliente> {
+        let peticion = self
+            .http
+            .get(self.url("/funcionarios"))
+            .query(&[("incluir_inactivos", incluir_inactivos)]);
+        Self::json(peticion).await
+    }
+
+    /// `POST /funcionarios` (RF-13, RF-14).
+    pub async fn crear_funcionario(
+        &self,
+        nuevo: &NuevoFuncionario,
+    ) -> Result<Funcionario, ErrorCliente> {
+        Self::json(self.http.post(self.url("/funcionarios")).json(nuevo)).await
+    }
+
+    /// `PATCH /funcionarios/{id}` (RF-13, RF-14).
+    pub async fn actualizar_funcionario(
+        &self,
+        id: i64,
+        cambios: &CambiosFuncionario,
+    ) -> Result<Funcionario, ErrorCliente> {
+        let url = self.url(&format!("/funcionarios/{id}"));
+        Self::json(self.http.patch(url).json(cambios)).await
+    }
+
+    /// `GET /reservas?fecha=` (RF-01).
     pub async fn reservas_del_dia(&self, fecha: Fecha) -> Result<Vec<Reserva>, ErrorCliente> {
         let peticion = self
             .http
@@ -212,9 +277,36 @@ impl ClienteApi {
         Self::json(peticion).await
     }
 
-    /// `POST /reservas` (RF-03, RF-05).
+    /// `GET /reservas/buscar` (RF-15).
+    pub async fn buscar_reservas(
+        &self,
+        consulta: &ConsultaBuscarReservas,
+    ) -> Result<Vec<Reserva>, ErrorCliente> {
+        let peticion = self.http.get(self.url("/reservas/buscar")).query(consulta);
+        Self::json(peticion).await
+    }
+
+    /// `POST /reservas` (RF-03, RF-05, RF-13).
     pub async fn crear_reserva(&self, nueva: &NuevaReserva) -> Result<Reserva, ErrorCliente> {
         Self::json(self.http.post(self.url("/reservas")).json(nueva)).await
+    }
+
+    /// `POST /reservas/lote` (RF-03, RF-05, RF-13).
+    pub async fn crear_lote(&self, lote: &NuevoLote) -> Result<ResultadoLote, ErrorCliente> {
+        Self::json(self.http.post(self.url("/reservas/lote")).json(lote)).await
+    }
+
+    /// `DELETE /reservas/grupo/{grupo}?desde=` (RF-04).
+    pub async fn cancelar_grupo(
+        &self,
+        grupo: i64,
+        desde: Fecha,
+    ) -> Result<ResultadoCancelacion, ErrorCliente> {
+        let peticion = self
+            .http
+            .delete(self.url(&format!("/reservas/grupo/{grupo}")))
+            .query(&[("desde", desde.to_string())]);
+        Self::json(peticion).await
     }
 
     /// `DELETE /reservas/{id}` (RF-04).

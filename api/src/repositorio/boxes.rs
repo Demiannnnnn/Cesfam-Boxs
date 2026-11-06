@@ -1,18 +1,31 @@
-//! SQL de la tabla `box` (RF-06).
+//! SQL de la tabla `box` (RF-06, RF-14, RF-15).
 
-use gestion_box_shared::BoxAtencion;
+use gestion_box_shared::{Bloque, BoxAtencion, Fecha};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use super::{es_violacion_unique, ErrorRepositorio};
 
-const SQL_LISTAR: &str = "SELECT id, nombre, activo, orden FROM box
+const SQL_LISTAR: &str = "SELECT id, nombre, activo, orden, etiqueta_id FROM box
      WHERE (?1 OR activo = 1)
      ORDER BY orden, nombre COLLATE NOCASE";
-const SQL_OBTENER: &str = "SELECT id, nombre, activo, orden FROM box WHERE id = ?1";
-const SQL_CREAR: &str = "INSERT INTO box (nombre, orden)
-     VALUES (?1, (SELECT COALESCE(MAX(orden), 0) + 1 FROM box))";
+const SQL_LISTAR_LIBRES: &str = "SELECT b.id, b.nombre, b.activo, b.orden, b.etiqueta_id
+     FROM box b
+     WHERE b.activo = 1
+       AND (?4 IS NULL OR b.etiqueta_id = ?4)
+       AND NOT EXISTS (
+           SELECT 1 FROM reserva r
+           WHERE r.box_id = b.id
+             AND r.fecha = ?1
+             AND r.bloque BETWEEN ?2 AND ?3
+       )
+     ORDER BY b.orden, b.nombre COLLATE NOCASE";
+const SQL_OBTENER: &str = "SELECT id, nombre, activo, orden, etiqueta_id FROM box WHERE id = ?1";
+const SQL_CREAR: &str = "INSERT INTO box (nombre, orden, etiqueta_id)
+     VALUES (?1, (SELECT COALESCE(MAX(orden), 0) + 1 FROM box), ?2)";
 const SQL_ACTUALIZAR: &str = "UPDATE box
-     SET nombre = COALESCE(?2, nombre), activo = COALESCE(?3, activo)
+     SET nombre = COALESCE(?2, nombre),
+         activo = COALESCE(?3, activo),
+         etiqueta_id = CASE WHEN ?4 THEN ?5 ELSE etiqueta_id END
      WHERE id = ?1";
 
 fn fila_a_box(fila: &Row<'_>) -> rusqlite::Result<BoxAtencion> {
@@ -21,6 +34,7 @@ fn fila_a_box(fila: &Row<'_>) -> rusqlite::Result<BoxAtencion> {
         nombre: fila.get(1)?,
         activo: fila.get(2)?,
         orden: fila.get(3)?,
+        etiqueta_id: fila.get(4)?,
     })
 }
 
@@ -44,6 +58,25 @@ pub fn listar(
     Ok(boxes)
 }
 
+/// Lista los boxes activos que no tienen ninguna reserva en `desde..=hasta` de `fecha`,
+/// filtrados por `etiqueta_id` si se indica, en el orden de la grilla. Cubre RF-15.
+pub fn listar_libres(
+    conn: &Connection,
+    fecha: Fecha,
+    desde: Bloque,
+    hasta: Bloque,
+    etiqueta_id: Option<i64>,
+) -> Result<Vec<BoxAtencion>, ErrorRepositorio> {
+    let mut sentencia = conn.prepare_cached(SQL_LISTAR_LIBRES)?;
+    let boxes = sentencia
+        .query_map(
+            params![fecha.to_string(), desde.valor(), hasta.valor(), etiqueta_id],
+            fila_a_box,
+        )?
+        .collect::<Result<_, _>>()?;
+    Ok(boxes)
+}
+
 /// Obtiene un box por id.
 ///
 /// # Errores
@@ -55,18 +88,22 @@ pub fn obtener(conn: &Connection, id: i64) -> Result<BoxAtencion, ErrorRepositor
         .ok_or(ErrorRepositorio::NoEncontrado)
 }
 
-/// Crea un box activo al final del orden.
+/// Crea un box activo al final del orden, con etiqueta opcional (RF-06, RF-14).
 ///
 /// # Errores
 /// [`ErrorRepositorio::NombreDuplicado`] si el nombre ya existe (sin distinguir mayúsculas).
-pub fn crear(conn: &Connection, nombre: &str) -> Result<BoxAtencion, ErrorRepositorio> {
+pub fn crear(
+    conn: &Connection,
+    nombre: &str,
+    etiqueta_id: Option<i64>,
+) -> Result<BoxAtencion, ErrorRepositorio> {
     conn.prepare_cached(SQL_CREAR)?
-        .execute(params![nombre])
+        .execute(params![nombre, etiqueta_id])
         .map_err(mapear_unique)?;
     obtener(conn, conn.last_insert_rowid())
 }
 
-/// Actualiza nombre y/o estado activo. `None` deja el campo como está.
+/// Actualiza nombre, estado activo y/o etiqueta (`Some(None)` la quita, `None` no la toca).
 ///
 /// # Errores
 /// [`ErrorRepositorio::NoEncontrado`] o [`ErrorRepositorio::NombreDuplicado`].
@@ -75,10 +112,19 @@ pub fn actualizar(
     id: i64,
     nombre: Option<&str>,
     activo: Option<bool>,
+    etiqueta_id: Option<Option<i64>>,
 ) -> Result<BoxAtencion, ErrorRepositorio> {
+    let cambiar_etiqueta = etiqueta_id.is_some();
+    let nueva_etiqueta = etiqueta_id.flatten();
     let filas = conn
         .prepare_cached(SQL_ACTUALIZAR)?
-        .execute(params![id, nombre, activo])
+        .execute(params![
+            id,
+            nombre,
+            activo,
+            cambiar_etiqueta,
+            nueva_etiqueta
+        ])
         .map_err(mapear_unique)?;
     if filas == 0 {
         return Err(ErrorRepositorio::NoEncontrado);
@@ -89,25 +135,26 @@ pub fn actualizar(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db;
+    use crate::{db, repositorio::etiquetas};
 
     #[test]
     fn crear_asigna_orden_incremental() {
         let conn = db::abrir_en_memoria().unwrap();
 
-        let a = crear(&conn, "Box 1").unwrap();
-        let b = crear(&conn, "Box 2").unwrap();
+        let a = crear(&conn, "Box 1", None).unwrap();
+        let b = crear(&conn, "Box 2", None).unwrap();
 
         assert_eq!((a.orden, b.orden), (1, 2));
         assert!(a.activo);
+        assert_eq!(a.etiqueta_id, None);
     }
 
     #[test]
     fn nombre_duplicado_sin_distinguir_mayusculas() {
         let conn = db::abrir_en_memoria().unwrap();
-        crear(&conn, "Box 1").unwrap();
+        crear(&conn, "Box 1", None).unwrap();
 
-        let error = crear(&conn, "box 1").unwrap_err();
+        let error = crear(&conn, "box 1", None).unwrap_err();
 
         assert!(matches!(error, ErrorRepositorio::NombreDuplicado));
     }
@@ -115,30 +162,34 @@ mod tests {
     #[test]
     fn listar_oculta_inactivos_salvo_que_se_pidan() {
         let conn = db::abrir_en_memoria().unwrap();
-        let a = crear(&conn, "Box 1").unwrap();
-        crear(&conn, "Box 2").unwrap();
-        actualizar(&conn, a.id, None, Some(false)).unwrap();
+        let a = crear(&conn, "Box 1", None).unwrap();
+        crear(&conn, "Box 2", None).unwrap();
+        actualizar(&conn, a.id, None, Some(false), None).unwrap();
 
         assert_eq!(listar(&conn, false).unwrap().len(), 1);
         assert_eq!(listar(&conn, true).unwrap().len(), 2);
     }
 
     #[test]
-    fn actualizar_parcial_conserva_campos_omitidos() {
+    fn actualizar_parcial_conserva_campos_omitidos_y_permite_quitar_etiqueta() {
         let conn = db::abrir_en_memoria().unwrap();
-        let a = crear(&conn, "Box 1").unwrap();
+        let et = etiquetas::crear(&conn, "Dental", &"#16a34a".parse().unwrap()).unwrap();
+        let a = crear(&conn, "Box 1", Some(et.id)).unwrap();
 
-        let cambiado = actualizar(&conn, a.id, Some("Box Dental"), None).unwrap();
-
+        let cambiado = actualizar(&conn, a.id, Some("Box Dental"), None, None).unwrap();
         assert_eq!(cambiado.nombre, "Box Dental");
         assert!(cambiado.activo);
+        assert_eq!(cambiado.etiqueta_id, Some(et.id));
+
+        let sin_etiqueta = actualizar(&conn, a.id, None, None, Some(None)).unwrap();
+        assert_eq!(sin_etiqueta.etiqueta_id, None);
     }
 
     #[test]
     fn actualizar_inexistente_es_no_encontrado() {
         let conn = db::abrir_en_memoria().unwrap();
 
-        let error = actualizar(&conn, 99, None, Some(false)).unwrap_err();
+        let error = actualizar(&conn, 99, None, Some(false), None).unwrap_err();
 
         assert!(matches!(error, ErrorRepositorio::NoEncontrado));
     }

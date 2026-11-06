@@ -11,5 +11,10 @@ pub mod tipos;
 
 pub use descubrimiento::RespuestaDescubrimiento;
 pub use error::{CodigoError, ErrorRespuesta};
-pub use modelo::{BoxAtencion, CambiosBox, EstadoSalud, NuevaReserva, NuevoBox, Reserva};
-pub use tipos::{Bloque, ErrorTipo, Fecha};
+pub use modelo::{
+    BloqueOmitido, BoxAtencion, CambiosBox, CambiosEtiqueta, CambiosFuncionario,
+    ConsultaBoxesLibres, ConsultaBuscarReservas, EstadoSalud, Etiqueta, Funcionario, NuevaEtiqueta,
+    NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote, Reserva, ResultadoCancelacion,
+    ResultadoLote,
+};
+pub use tipos::{Bloque, Color, ErrorTipo, Fecha};

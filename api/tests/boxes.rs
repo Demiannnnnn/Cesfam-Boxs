@@ -1,7 +1,7 @@
 mod comun;
 
 use axum::http::StatusCode;
-use comun::{crear_box, pedir, router_de_prueba};
+use comun::{crear_box, crear_etiqueta, pedir, router_de_prueba};
 use serde_json::json;
 
 #[tokio::test]
@@ -116,4 +116,58 @@ async fn id_no_numerico_devuelve_400() {
 
     assert_eq!(r.estado, StatusCode::BAD_REQUEST);
     assert_eq!(r.cuerpo["codigo"], "datos_invalidos");
+}
+
+#[tokio::test]
+async fn asignar_quitar_y_validar_etiqueta_en_box() {
+    let router = router_de_prueba();
+    let et_id = crear_etiqueta(&router, "Dental", "#16a34a").await;
+
+    let creado = pedir(
+        &router,
+        "POST",
+        "/boxes",
+        Some(json!({ "nombre": "Box 1", "etiqueta_id": et_id })),
+    )
+    .await;
+    assert_eq!(creado.estado, StatusCode::CREATED);
+    assert_eq!(creado.cuerpo["etiqueta_id"], et_id);
+    let box_id = creado.cuerpo["id"].as_i64().unwrap();
+
+    let sin_etiqueta = pedir(
+        &router,
+        "PATCH",
+        &format!("/boxes/{box_id}"),
+        Some(json!({ "etiqueta_id": null })),
+    )
+    .await;
+    assert_eq!(sin_etiqueta.estado, StatusCode::OK);
+    assert!(sin_etiqueta.cuerpo["etiqueta_id"].is_null());
+
+    pedir(
+        &router,
+        "PATCH",
+        &format!("/etiquetas/{et_id}"),
+        Some(json!({ "activo": false })),
+    )
+    .await;
+    let inactiva = pedir(
+        &router,
+        "PATCH",
+        &format!("/boxes/{box_id}"),
+        Some(json!({ "etiqueta_id": et_id })),
+    )
+    .await;
+    assert_eq!(inactiva.estado, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(inactiva.cuerpo["codigo"], "etiqueta_inactiva");
+
+    let inexistente = pedir(
+        &router,
+        "PATCH",
+        &format!("/boxes/{box_id}"),
+        Some(json!({ "etiqueta_id": 999 })),
+    )
+    .await;
+    assert_eq!(inexistente.estado, StatusCode::NOT_FOUND);
+    assert_eq!(inexistente.cuerpo["mensaje"], "No se encontró la etiqueta");
 }

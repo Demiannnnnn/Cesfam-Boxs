@@ -18,6 +18,9 @@ La app cubre ver, reservar y cancelar en una sola pantalla; la API es la única 
 | RF-10 | Guardar la última dirección válida del servidor en la configuración local | App | T-3.1 |
 | RF-11 | Respaldar la base de datos al iniciar la API, conservando los últimos 30 respaldos | API | T-2.9 |
 | RF-12 | Exportar las reservas de un rango de fechas a Excel o CSV (opcional) | App | T-3.10 |
+| RF-13 | Registrar funcionarios (agregar, renombrar, asignar etiqueta, desactivar); las reservas se asignan solo a funcionarios registrados y activos | App + API | T-7.1, T-7.2 |
+| RF-14 | Definir etiquetas con nombre y color y asignarlas a boxes y funcionarios; la grilla muestra esos colores | App + API | T-7.1, T-7.2 |
+| RF-15 | Buscar reservas (por funcionario, etiqueta o box en un rango de fechas) y boxes libres (por día, rango horario y etiqueta) | App + API | T-7.3 |
 
 **Bloques horarios:** 30 minutos entre 08:00 y 20:00 → 24 bloques. El bloque `0` es
 08:00–08:30 y el bloque `23` es 19:30–20:00. *Pendiente de confirmar con el CESFAM (T-0.1).*

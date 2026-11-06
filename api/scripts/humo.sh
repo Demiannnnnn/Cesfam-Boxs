@@ -38,11 +38,13 @@ verificar() { # verificar <descripción> <código esperado> <método> <ruta> [cu
 
 echo "Prueba de humo contra $BASE (datos en $CARPETA)"
 verificar "health"                 200 GET    /health
-verificar "crear box"              201 POST   /boxes '{"nombre":"Box 1"}'
+verificar "crear etiqueta"         201 POST   /etiquetas '{"nombre":"Enfermería","color":"#2563eb"}'
+verificar "crear funcionario"      201 POST   /funcionarios '{"nombre":"María Pérez","etiqueta_id":1}'
+verificar "crear box"              201 POST   /boxes '{"nombre":"Box 1","etiqueta_id":1}'
 verificar "box duplicado"          409 POST   /boxes '{"nombre":"box 1"}'
 verificar "listar boxes"           200 GET    /boxes
-verificar "reservar"               201 POST   /reservas "{\"box_id\":1,\"fecha\":\"$FECHA\",\"bloque\":4,\"funcionario\":\"María Pérez\"}"
-verificar "reservar mismo bloque"  409 POST   /reservas "{\"box_id\":1,\"fecha\":\"$FECHA\",\"bloque\":4,\"funcionario\":\"Juan Soto\"}"
+verificar "reservar"               201 POST   /reservas "{\"box_id\":1,\"fecha\":\"$FECHA\",\"bloque\":4,\"funcionario_id\":1}"
+verificar "reservar mismo bloque"  409 POST   /reservas "{\"box_id\":1,\"fecha\":\"$FECHA\",\"bloque\":4,\"funcionario_id\":1}"
 verificar "listar reservas"        200 GET    "/reservas?fecha=$FECHA"
 verificar "cancelar"               204 DELETE /reservas/1
 verificar "cancelar de nuevo"      404 DELETE /reservas/1

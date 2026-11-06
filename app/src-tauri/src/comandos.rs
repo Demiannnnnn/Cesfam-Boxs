@@ -6,7 +6,10 @@ use std::sync::Mutex;
 
 use gestion_box_shared::horario::Horario;
 use gestion_box_shared::{
-    BoxAtencion, CambiosBox, EstadoSalud, Fecha, NuevaReserva, NuevoBox, Reserva,
+    Bloque, BoxAtencion, CambiosBox, CambiosEtiqueta, CambiosFuncionario, Color,
+    ConsultaBoxesLibres, ConsultaBuscarReservas, EstadoSalud, Etiqueta, Fecha, Funcionario,
+    NuevaEtiqueta, NuevaReserva, NuevoBox, NuevoFuncionario, NuevoLote, Reserva,
+    ResultadoCancelacion, ResultadoLote,
 };
 use serde::Serialize;
 use tauri::State;
@@ -100,25 +103,25 @@ impl From<Servidor> for ResultadoConexion {
     }
 }
 
-/// Preferencias locales que la interfaz necesita al iniciar.
+/// Preferencias locales que la interfaz necesita al iniciar (RF-10, RF-13).
 #[derive(Debug, Clone, Serialize)]
 pub struct Preferencias {
-    pub ultimo_funcionario: Option<String>,
+    pub ultimo_funcionario_id: Option<i64>,
     pub servidor: Option<String>,
 }
 
-/// Horario de bloques (fuente única en `shared::horario`).
+/// Horario de bloques (fuente única en `shared::horario`). Cubre RF-01.
 #[tauri::command]
 pub fn horario() -> Horario {
     Horario::actual()
 }
 
-/// Preferencias guardadas en este PC.
+/// Preferencias guardadas en este PC. Cubre RF-10.
 #[tauri::command]
 pub fn preferencias(estado: State<'_, EstadoApp>) -> Preferencias {
     let config = estado.config();
     Preferencias {
-        ultimo_funcionario: config.ultimo_funcionario,
+        ultimo_funcionario_id: config.ultimo_funcionario_id,
         servidor: config.servidor,
     }
 }
@@ -139,7 +142,7 @@ pub async fn conectar(estado: State<'_, EstadoApp>) -> Resultado<ResultadoConexi
     }
 }
 
-/// Conecta a la dirección escrita por el usuario (nombre del PC o IP).
+/// Conecta a la dirección escrita por el usuario (nombre del PC o IP). Cubre RF-09.
 #[tauri::command]
 pub async fn conectar_manual(
     estado: State<'_, EstadoApp>,
@@ -165,40 +168,141 @@ pub async fn conectar_manual(
 /// `GET /health` del servidor actual (RF-08).
 #[tauri::command]
 pub async fn estado_salud(estado: State<'_, EstadoApp>) -> Resultado<EstadoSalud> {
-    let cliente = estado.cliente()?;
-    cliente.salud().await.map_err(|e| estado.error(e))
+    estado.cliente()?.salud().await.map_err(|e| estado.error(e))
 }
 
+/// Lista los boxes de atención. Cubre RF-01, RF-06 y RF-14.
 #[tauri::command]
 pub async fn listar_boxes(
     estado: State<'_, EstadoApp>,
     incluir_inactivos: bool,
 ) -> Resultado<Vec<BoxAtencion>> {
-    let cliente = estado.cliente()?;
-    cliente
+    estado
+        .cliente()?
         .listar_boxes(incluir_inactivos)
         .await
         .map_err(|e| estado.error(e))
 }
 
+/// Crea un nuevo box con etiqueta opcional. Cubre RF-06 y RF-14.
 #[tauri::command]
-pub async fn crear_box(estado: State<'_, EstadoApp>, nombre: String) -> Resultado<BoxAtencion> {
-    let cliente = estado.cliente()?;
-    cliente
-        .crear_box(&NuevoBox { nombre })
+pub async fn crear_box(
+    estado: State<'_, EstadoApp>,
+    nombre: String,
+    etiqueta_id: Option<i64>,
+) -> Resultado<BoxAtencion> {
+    estado
+        .cliente()?
+        .crear_box(&NuevoBox {
+            nombre,
+            etiqueta_id,
+        })
         .await
         .map_err(|e| estado.error(e))
 }
 
+/// Actualiza nombre, etiqueta o estado activo de un box. Cubre RF-06 y RF-14.
 #[tauri::command]
 pub async fn actualizar_box(
     estado: State<'_, EstadoApp>,
     id: i64,
     cambios: CambiosBox,
 ) -> Resultado<BoxAtencion> {
-    let cliente = estado.cliente()?;
-    cliente
+    estado
+        .cliente()?
         .actualizar_box(id, &cambios)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Lista las etiquetas registradas. Cubre RF-14.
+#[tauri::command]
+pub async fn listar_etiquetas(
+    estado: State<'_, EstadoApp>,
+    incluir_inactivos: bool,
+) -> Resultado<Vec<Etiqueta>> {
+    estado
+        .cliente()?
+        .listar_etiquetas(incluir_inactivos)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+fn parsear_color(texto: &str) -> Resultado<Color> {
+    texto
+        .parse()
+        .map_err(|_| ErrorUi::datos_invalidos("Elige un color válido en formato #RRGGBB."))
+}
+
+/// Crea una nueva etiqueta con nombre y color. Cubre RF-14.
+#[tauri::command]
+pub async fn crear_etiqueta(
+    estado: State<'_, EstadoApp>,
+    nombre: String,
+    color: String,
+) -> Resultado<Etiqueta> {
+    let color = parsear_color(&color)?;
+    estado
+        .cliente()?
+        .crear_etiqueta(&NuevaEtiqueta { nombre, color })
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Actualiza nombre, color o estado activo de una etiqueta. Cubre RF-14.
+#[tauri::command]
+pub async fn actualizar_etiqueta(
+    estado: State<'_, EstadoApp>,
+    id: i64,
+    cambios: CambiosEtiqueta,
+) -> Resultado<Etiqueta> {
+    estado
+        .cliente()?
+        .actualizar_etiqueta(id, &cambios)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Lista los funcionarios registrados. Cubre RF-13 y RF-14.
+#[tauri::command]
+pub async fn listar_funcionarios(
+    estado: State<'_, EstadoApp>,
+    incluir_inactivos: bool,
+) -> Resultado<Vec<Funcionario>> {
+    estado
+        .cliente()?
+        .listar_funcionarios(incluir_inactivos)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Registra un nuevo funcionario con etiqueta opcional. Cubre RF-13 y RF-14.
+#[tauri::command]
+pub async fn crear_funcionario(
+    estado: State<'_, EstadoApp>,
+    nombre: String,
+    etiqueta_id: Option<i64>,
+) -> Resultado<Funcionario> {
+    estado
+        .cliente()?
+        .crear_funcionario(&NuevoFuncionario {
+            nombre,
+            etiqueta_id,
+        })
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Actualiza nombre, etiqueta o estado activo de un funcionario. Cubre RF-13 y RF-14.
+#[tauri::command]
+pub async fn actualizar_funcionario(
+    estado: State<'_, EstadoApp>,
+    id: i64,
+    cambios: CambiosFuncionario,
+) -> Resultado<Funcionario> {
+    estado
+        .cliente()?
+        .actualizar_funcionario(id, &cambios)
         .await
         .map_err(|e| estado.error(e))
 }
@@ -209,40 +313,141 @@ fn parsear_fecha(texto: &str) -> Resultado<Fecha> {
         .map_err(|_| ErrorUi::datos_invalidos(format!("La fecha \"{texto}\" no es válida.")))
 }
 
+fn parsear_bloque(valor: u8) -> Resultado<Bloque> {
+    Bloque::new(valor).map_err(|e| ErrorUi::datos_invalidos(e.to_string()))
+}
+
+/// Lista los boxes activos libres en `desde..=hasta` de `fecha`, con filtro opcional
+/// de etiqueta del box. Cubre RF-15.
+#[tauri::command]
+pub async fn boxes_libres(
+    estado: State<'_, EstadoApp>,
+    fecha: String,
+    desde: u8,
+    hasta: u8,
+    etiqueta_id: Option<i64>,
+) -> Resultado<Vec<BoxAtencion>> {
+    let consulta = ConsultaBoxesLibres {
+        fecha: parsear_fecha(&fecha)?,
+        desde: parsear_bloque(desde)?,
+        hasta: parsear_bloque(hasta)?,
+        etiqueta_id,
+    };
+    estado
+        .cliente()?
+        .boxes_libres(&consulta)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Busca reservas en `desde..=hasta` filtrando por funcionario, etiqueta y/o box. Cubre RF-15.
+#[tauri::command]
+pub async fn buscar_reservas(
+    estado: State<'_, EstadoApp>,
+    desde: String,
+    hasta: String,
+    funcionario_id: Option<i64>,
+    etiqueta_id: Option<i64>,
+    box_id: Option<i64>,
+) -> Resultado<Vec<Reserva>> {
+    let consulta = ConsultaBuscarReservas {
+        desde: parsear_fecha(&desde)?,
+        hasta: parsear_fecha(&hasta)?,
+        funcionario_id,
+        etiqueta_id,
+        box_id,
+    };
+    estado
+        .cliente()?
+        .buscar_reservas(&consulta)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Lista las reservas de un día. Cubre RF-01.
 #[tauri::command]
 pub async fn listar_reservas(
     estado: State<'_, EstadoApp>,
     fecha: String,
 ) -> Resultado<Vec<Reserva>> {
     let fecha = parsear_fecha(&fecha)?;
-    let cliente = estado.cliente()?;
-    cliente
+    estado
+        .cliente()?
         .reservas_del_dia(fecha)
         .await
         .map_err(|e| estado.error(e))
 }
 
-/// Crea una reserva y recuerda el nombre del funcionario en este PC.
+/// Reservas de un rango de fechas (vista semanal). Cubre RF-01.
+#[tauri::command]
+pub async fn listar_reservas_rango(
+    estado: State<'_, EstadoApp>,
+    desde: String,
+    hasta: String,
+) -> Resultado<Vec<Reserva>> {
+    let (desde, hasta) = (parsear_fecha(&desde)?, parsear_fecha(&hasta)?);
+    estado
+        .cliente()?
+        .reservas_del_rango(desde, hasta)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Crea una reserva y recuerda el identificador del funcionario en este PC. Cubre RF-03 y RF-13.
 #[tauri::command]
 pub async fn crear_reserva(
     estado: State<'_, EstadoApp>,
     nueva: NuevaReserva,
 ) -> Resultado<Reserva> {
-    let cliente = estado.cliente()?;
-    let reserva = cliente
+    let reserva = estado
+        .cliente()?
         .crear_reserva(&nueva)
         .await
         .map_err(|e| estado.error(e))?;
     estado.modificar_config(|config| {
-        config.ultimo_funcionario = Some(reserva.funcionario.clone());
+        config.ultimo_funcionario_id = Some(nueva.funcionario_id);
     });
     Ok(reserva)
 }
 
+/// Crea un rango de bloques en una o varias fechas (serie semanal) y recuerda el
+/// funcionario en este PC. Cubre RF-03, RF-05 y RF-13.
+#[tauri::command]
+pub async fn crear_reservas(
+    estado: State<'_, EstadoApp>,
+    lote: NuevoLote,
+) -> Resultado<ResultadoLote> {
+    let resultado = estado
+        .cliente()?
+        .crear_lote(&lote)
+        .await
+        .map_err(|e| estado.error(e))?;
+    if !resultado.creadas.is_empty() {
+        estado.modificar_config(|config| config.ultimo_funcionario_id = Some(lote.funcionario_id));
+    }
+    Ok(resultado)
+}
+
+/// Cancela las reservas de un grupo desde `desde` (este día y los siguientes de la serie). Cubre RF-04.
+#[tauri::command]
+pub async fn cancelar_grupo(
+    estado: State<'_, EstadoApp>,
+    grupo: i64,
+    desde: String,
+) -> Resultado<ResultadoCancelacion> {
+    let desde = parsear_fecha(&desde)?;
+    estado
+        .cliente()?
+        .cancelar_grupo(grupo, desde)
+        .await
+        .map_err(|e| estado.error(e))
+}
+
+/// Cancela una reserva individual. Cubre RF-04.
 #[tauri::command]
 pub async fn cancelar_reserva(estado: State<'_, EstadoApp>, id: i64) -> Resultado<()> {
-    let cliente = estado.cliente()?;
-    cliente
+    estado
+        .cliente()?
         .cancelar_reserva(id)
         .await
         .map_err(|e| estado.error(e))
@@ -266,7 +471,9 @@ pub async fn exportar_csv(
         .listar_boxes(true)
         .await
         .map_err(|e| estado.error(e))?;
-    let csv = exportar::generar_csv(&reservas, &boxes);
+    let funcionarios = cliente.listar_funcionarios(true).await.unwrap_or_default();
+    let etiquetas = cliente.listar_etiquetas(true).await.unwrap_or_default();
+    let csv = exportar::generar_csv(&reservas, &boxes, &funcionarios, &etiquetas);
     tokio::fs::write(&ruta, csv).await.map_err(|error| {
         eprintln!("[gestion-box] no se pudo escribir {ruta}: {error}");
         ErrorUi::new(
@@ -275,4 +482,35 @@ pub async fn exportar_csv(
         )
     })?;
     Ok(reservas.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parsear_color_acepta_hex_y_rechaza_invalido() {
+        assert_eq!(parsear_color("#2563EB").unwrap().as_str(), "#2563eb");
+
+        let error = parsear_color("azul").unwrap_err();
+        assert_eq!(error.codigo, "datos_invalidos");
+        assert!(error.mensaje.contains("#RRGGBB"));
+    }
+
+    #[test]
+    fn parsear_fecha_rechaza_formato_invalido() {
+        assert!(parsear_fecha("2026-10-01").is_ok());
+
+        let error = parsear_fecha("01-10-2026").unwrap_err();
+        assert_eq!(error.codigo, "datos_invalidos");
+    }
+
+    #[test]
+    fn parsear_bloque_rechaza_fuera_de_rango() {
+        assert!(parsear_bloque(0).is_ok());
+        assert!(parsear_bloque(23).is_ok());
+
+        let error = parsear_bloque(24).unwrap_err();
+        assert_eq!(error.codigo, "datos_invalidos");
+    }
 }

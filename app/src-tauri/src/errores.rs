@@ -81,6 +81,8 @@ fn codigo_texto(codigo: CodigoError) -> &'static str {
         CodigoError::BloqueOcupado => "bloque_ocupado",
         CodigoError::NombreDuplicado => "nombre_duplicado",
         CodigoError::BoxInactivo => "box_inactivo",
+        CodigoError::FuncionarioInactivo => "funcionario_inactivo",
+        CodigoError::EtiquetaInactiva => "etiqueta_inactiva",
         CodigoError::ErrorInterno => "interno",
     }
 }
@@ -89,9 +91,23 @@ fn codigo_texto(codigo: CodigoError) -> &'static str {
 fn mensaje_api(codigo: CodigoError, mensaje: &str) -> String {
     match codigo {
         CodigoError::BloqueOcupado => gestion_box_shared::error::MENSAJE_BLOQUE_OCUPADO.to_owned(),
-        CodigoError::NombreDuplicado => "Ya existe un box con ese nombre.".to_owned(),
+        CodigoError::NombreDuplicado => {
+            if mensaje.trim().is_empty() {
+                "Ya existe un box con ese nombre.".to_owned()
+            } else if mensaje.ends_with('.') {
+                mensaje.to_owned()
+            } else {
+                format!("{mensaje}.")
+            }
+        }
         CodigoError::BoxInactivo => {
             "Ese box está desactivado. Actívalo en Configuración de boxes.".to_owned()
+        }
+        CodigoError::FuncionarioInactivo => {
+            "Ese funcionario está desactivado. Actívalo en Funcionarios.".to_owned()
+        }
+        CodigoError::EtiquetaInactiva => {
+            "Esa etiqueta está desactivada. Actívala en Etiquetas.".to_owned()
         }
         CodigoError::ErrorInterno => {
             "Ocurrió un error en el servidor. Si se repite, avisa a TI y menciona la hora."
@@ -166,6 +182,44 @@ mod tests {
         assert_eq!(
             error_para_ui(&error, None, None).mensaje,
             "No se encontró la reserva"
+        );
+    }
+
+    #[test]
+    fn codigos_de_funcionario_y_etiqueta_traducen_en_espanol() {
+        let dup_func = ErrorCliente::Api(ErrorRespuesta::new(
+            CodigoError::NombreDuplicado,
+            "Ya existe un funcionario con ese nombre",
+        ));
+        let func_inactivo = ErrorCliente::Api(ErrorRespuesta::new(
+            CodigoError::FuncionarioInactivo,
+            "Ese funcionario está desactivado",
+        ));
+        let etiq_inactiva = ErrorCliente::Api(ErrorRespuesta::new(
+            CodigoError::EtiquetaInactiva,
+            "Esa etiqueta está desactivada",
+        ));
+
+        assert_eq!(
+            error_para_ui(&dup_func, None, None),
+            ErrorUi::new(
+                "nombre_duplicado",
+                "Ya existe un funcionario con ese nombre."
+            )
+        );
+        assert_eq!(
+            error_para_ui(&func_inactivo, None, None),
+            ErrorUi::new(
+                "funcionario_inactivo",
+                "Ese funcionario está desactivado. Actívalo en Funcionarios."
+            )
+        );
+        assert_eq!(
+            error_para_ui(&etiq_inactiva, None, None),
+            ErrorUi::new(
+                "etiqueta_inactiva",
+                "Esa etiqueta está desactivada. Actívala en Etiquetas."
+            )
         );
     }
 }

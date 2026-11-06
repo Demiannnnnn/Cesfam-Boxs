@@ -73,3 +73,29 @@ pub async fn crear_box(router: &Router, nombre: &str) -> i64 {
     assert_eq!(r.estado, StatusCode::CREATED, "{:?}", r.cuerpo);
     r.cuerpo["id"].as_i64().unwrap()
 }
+
+/// Crea un funcionario y devuelve su id.
+pub async fn crear_funcionario(router: &Router, nombre: &str) -> i64 {
+    let r = pedir(
+        router,
+        "POST",
+        "/funcionarios",
+        Some(serde_json::json!({ "nombre": nombre })),
+    )
+    .await;
+    assert_eq!(r.estado, StatusCode::CREATED, "{:?}", r.cuerpo);
+    r.cuerpo["id"].as_i64().unwrap()
+}
+
+/// Crea una etiqueta y devuelve su id.
+pub async fn crear_etiqueta(router: &Router, nombre: &str, color: &str) -> i64 {
+    let r = pedir(
+        router,
+        "POST",
+        "/etiquetas",
+        Some(serde_json::json!({ "nombre": nombre, "color": color })),
+    )
+    .await;
+    assert_eq!(r.estado, StatusCode::CREATED, "{:?}", r.cuerpo);
+    r.cuerpo["id"].as_i64().unwrap()
+}

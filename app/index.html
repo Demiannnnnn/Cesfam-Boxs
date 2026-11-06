@@ -11,12 +11,19 @@
       <h1 class="barra__titulo">Gestión de Boxes</h1>
       <div id="conexion" class="conexion" role="status" aria-live="polite"></div>
       <div class="barra__acciones">
+        <button id="btn-buscar" type="button" class="boton boton--secundario">Buscar</button>
         <button id="btn-exportar" type="button" class="boton boton--secundario">Exportar</button>
+        <button id="btn-funcionarios" type="button" class="boton boton--secundario">Funcionarios</button>
+        <button id="btn-etiquetas" type="button" class="boton boton--secundario">Etiquetas</button>
         <button id="btn-boxes" type="button" class="boton boton--secundario">⚙ Boxes</button>
       </div>
     </header>
 
     <nav class="navegacion" aria-label="Cambiar de día">
+      <div class="vistas" role="group" aria-label="Vista">
+        <button id="btn-vista-dia" type="button" class="boton boton--vista" aria-pressed="true">Día</button>
+        <button id="btn-vista-semana" type="button" class="boton boton--vista" aria-pressed="false">Semana</button>
+      </div>
       <button id="btn-anterior" type="button" class="boton">◄ Anterior</button>
       <button id="btn-hoy" type="button" class="boton">Hoy</button>
       <button id="btn-siguiente" type="button" class="boton">Siguiente ►</button>
@@ -25,9 +32,22 @@
         <input id="selector-fecha" type="date" />
       </label>
       <h2 id="fecha-larga" class="navegacion__titulo"></h2>
+      <label class="navegacion__filtro">
+        <span class="oculto">Buscar funcionario</span>
+        <input id="filtro-funcionario" type="search" list="lista-funcionarios" placeholder="Buscar funcionario…" autocomplete="off" />
+      </label>
+      <datalist id="lista-funcionarios"></datalist>
+      <label class="navegacion__filtro-etiqueta">
+        <span class="oculto">Filtrar por etiqueta</span>
+        <select id="filtro-etiqueta">
+          <option value="">Todas las etiquetas</option>
+        </select>
+      </label>
     </nav>
 
     <div id="aviso" class="aviso" role="alert" hidden></div>
+
+    <div id="leyenda-etiquetas" class="leyenda-etiquetas" aria-label="Etiquetas" hidden></div>
 
     <main id="grilla" class="grilla"></main>
 
