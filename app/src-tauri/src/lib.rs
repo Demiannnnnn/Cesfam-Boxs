@@ -26,6 +26,8 @@ pub fn ejecutar() {
         .invoke_handler(tauri::generate_handler![
             comandos::horario,
             comandos::preferencias,
+            comandos::modo_equipo,
+            comandos::elegir_modo,
             comandos::conectar,
             comandos::conectar_manual,
             comandos::estado_salud,

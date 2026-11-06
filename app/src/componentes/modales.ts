@@ -7,7 +7,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 
 import { api } from "../api";
 import { boton, campo, el } from "../dom";
-import { estado, etiquetaDeFuncionario, nombreBox, rangoHorario } from "../estado";
+import { estado, etiquetaDeFuncionario, nombreBox, puedeEscribir, rangoHorario } from "../estado";
 import { fechaCorta, fechaHora, finDeMes, inicioDeMes } from "../fechas";
 import { textos } from "../textos";
 import type { Tramo } from "../tramos";
@@ -65,46 +65,49 @@ export function abrirDetalle(tramo: Tramo, alCambiar: () => void): void {
     ),
   );
 
-  dialogo.pie.prepend(
-    boton(
-      grupo === null ? textos.detalle.cancelar : textos.detalle.cancelarDia,
-      async () => {
-        if (!(await confirmar(textos.detalle.confirmarCancelacion(tramo.funcionario, horas), textos.detalle.siCancelar))) return;
-        if (await cancelarTramo(tramo, dialogo.mostrarError)) dialogo.cerrar();
-        alCambiar();
-      },
-      "peligro",
-    ),
-  );
-
-  if (grupo !== null) {
+  if (puedeEscribir()) {
     dialogo.pie.prepend(
       boton(
-        textos.detalle.cancelarSiguientes,
+        grupo === null ? textos.detalle.cancelar : textos.detalle.cancelarDia,
         async () => {
-          const msg = textos.detalle.confirmarCancelacionSerie(tramo.funcionario, fechaCorta(fecha));
-          if (!(await confirmar(msg, textos.detalle.siCancelar))) return;
-          try {
-            const { canceladas } = await api.cancelarGrupo(grupo, fecha);
-            mostrarAviso(textos.detalle.serieCancelada(canceladas), "exito");
-            dialogo.cerrar();
-          } catch (error) {
-            const e = error as ErrorUi;
-            if (e.codigo !== "no_encontrado") return dialogo.mostrarError(e.mensaje);
-            mostrarAviso(textos.detalle.yaCancelada);
-            dialogo.cerrar();
-          }
+          if (!(await confirmar(textos.detalle.confirmarCancelacion(tramo.funcionario, horas), textos.detalle.siCancelar))) return;
+          if (await cancelarTramo(tramo, dialogo.mostrarError)) dialogo.cerrar();
           alCambiar();
         },
         "peligro",
       ),
     );
+
+    if (grupo !== null) {
+      dialogo.pie.prepend(
+        boton(
+          textos.detalle.cancelarSiguientes,
+          async () => {
+            const msg = textos.detalle.confirmarCancelacionSerie(tramo.funcionario, fechaCorta(fecha));
+            if (!(await confirmar(msg, textos.detalle.siCancelar))) return;
+            try {
+              const { canceladas } = await api.cancelarGrupo(grupo, fecha);
+              mostrarAviso(textos.detalle.serieCancelada(canceladas), "exito");
+              dialogo.cerrar();
+            } catch (error) {
+              const e = error as ErrorUi;
+              if (e.codigo !== "no_encontrado") return dialogo.mostrarError(e.mensaje);
+              mostrarAviso(textos.detalle.yaCancelada);
+              dialogo.cerrar();
+            }
+            alCambiar();
+          },
+          "peligro",
+        ),
+      );
+    }
   }
 }
 
 // ─── Configuración de boxes ────────────────────────────────────────────────
 
 export function abrirBoxes(alCerrar: () => void): void {
+  if (!puedeEscribir()) return;
   const dialogo = abrirDialogo(textos.boxes.titulo, alCerrar);
   const lista = el("div", { clase: "lista-admin" });
   const contenedorNuevo = el("div", {});

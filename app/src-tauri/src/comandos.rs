@@ -16,7 +16,7 @@ use tauri::State;
 
 use crate::cliente_api::{host_de, normalizar_direccion, ClienteApi, ErrorCliente};
 use crate::conexion::{self, Servidor};
-use crate::config_local::ConfigLocal;
+use crate::config_local::{ConfigLocal, ModoEquipo};
 use crate::errores::{error_para_ui, ErrorUi, MENSAJE_NO_ENCONTRADO_EN_RED};
 use crate::exportar;
 
@@ -56,6 +56,21 @@ impl EstadoApp {
                 eprintln!("[gestion-box] no se pudo guardar cliente.json: {error}");
             }
         }
+    }
+
+    fn fijar_modo(&self, modo: ModoEquipo) -> Resultado<()> {
+        let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
+        config
+            .fijar_modo_inicial(modo)
+            .map_err(ErrorUi::datos_invalidos)?;
+        if let Err(error) = config.guardar(&self.ruta_config) {
+            eprintln!("[gestion-box] no se pudo guardar cliente.json: {error}");
+            return Err(ErrorUi::new(
+                "interno",
+                "No se pudo guardar la configuración del equipo.",
+            ));
+        }
+        Ok(())
     }
 
     fn cliente(&self) -> Resultado<ClienteApi> {
@@ -124,6 +139,18 @@ pub fn preferencias(estado: State<'_, EstadoApp>) -> Preferencias {
         ultimo_funcionario_id: config.ultimo_funcionario_id,
         servidor: config.servidor,
     }
+}
+
+/// Modo de operación configurado en este equipo, o `None` en el primer inicio. Cubre RF-16 y RF-17.
+#[tauri::command]
+pub fn modo_equipo(estado: State<'_, EstadoApp>) -> Option<ModoEquipo> {
+    estado.config().modo
+}
+
+/// Fija el modo de operación en el primer inicio. Falla si ya tiene un modo (RF-16).
+#[tauri::command]
+pub fn elegir_modo(estado: State<'_, EstadoApp>, modo: ModoEquipo) -> Resultado<()> {
+    estado.fijar_modo(modo)
 }
 
 /// Descubre el servidor: guardada → localhost → broadcast (RF-09, RNF-08).
@@ -512,5 +539,24 @@ mod tests {
 
         let error = parsear_bloque(24).unwrap_err();
         assert_eq!(error.codigo, "datos_invalidos");
+    }
+
+    #[test]
+    fn elegir_modo_funciona_con_none_y_falla_si_ya_existe() {
+        let carpeta = tempfile::tempdir().unwrap();
+        let ruta = carpeta.path().join("cliente.json");
+        let estado = EstadoApp::cargar(ruta);
+
+        assert_eq!(estado.config().modo, None);
+
+        // Primer inicio: fijar modo exitosamente
+        assert!(estado.fijar_modo(ModoEquipo::Escritura).is_ok());
+        assert_eq!(estado.config().modo, Some(ModoEquipo::Escritura));
+
+        // Intento posterior: rechazar con mensaje en español
+        let error = estado.fijar_modo(ModoEquipo::Lectura).unwrap_err();
+        assert_eq!(error.codigo, "datos_invalidos");
+        assert_eq!(error.mensaje, "El modo del equipo ya fue configurado.");
+        assert_eq!(estado.config().modo, Some(ModoEquipo::Escritura));
     }
 }

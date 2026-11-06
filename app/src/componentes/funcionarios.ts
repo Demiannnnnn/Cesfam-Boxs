@@ -6,13 +6,14 @@
  */
 import { api } from "../api";
 import { boton, campo, el } from "../dom";
-import { estado, normalizarTexto } from "../estado";
+import { estado, normalizarTexto, puedeEscribir } from "../estado";
 import { textos } from "../textos";
 import type { ErrorUi, Etiqueta, Funcionario } from "../tipos";
 import { abrirDialogo } from "./dialogo";
 import { crearSelectorEtiqueta } from "./formulario";
 
 export function abrirFuncionarios(alCerrar: () => void): void {
+  if (!puedeEscribir()) return;
   const dialogo = abrirDialogo(textos.funcionarios.titulo, alCerrar);
   const buscador = el("input", {
     clase: "buscador-modal",

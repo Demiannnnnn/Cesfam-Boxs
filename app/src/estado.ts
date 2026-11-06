@@ -3,7 +3,7 @@
  * y no guardan estado escondido en el DOM.
  */
 import { hoy } from "./fechas";
-import type { BoxAtencion, EstadoConexion, Etiqueta, Funcionario, Horario, Reserva } from "./tipos";
+import type { BoxAtencion, EstadoConexion, Etiqueta, Funcionario, Horario, ModoEquipo, Reserva } from "./tipos";
 
 export type Vista = "dia" | "semana";
 
@@ -27,6 +27,8 @@ export interface EstadoPantalla {
   equipo: string;
   /** Identificador del último funcionario usado al reservar en este PC. */
   ultimoFuncionarioId: number | null;
+  /** Modo de operación configurado en este equipo (servidor, escritura o lectura). */
+  modo: ModoEquipo | null;
 }
 
 export const estado: EstadoPantalla = {
@@ -42,7 +44,16 @@ export const estado: EstadoPantalla = {
   conexion: { tipo: "buscando" },
   equipo: "",
   ultimoFuncionarioId: null,
+  modo: null,
 };
+
+/**
+ * Indica si este equipo tiene permisos para modificar datos (servidor o escritura).
+ * Devuelve `false` en modo lectura y mientras no se haya elegido modo (RF-16, RF-17).
+ */
+export function puedeEscribir(): boolean {
+  return estado.modo === "servidor" || estado.modo === "escritura";
+}
 
 /** Nombre del box o un texto de respaldo si ya no está en la lista. */
 export function nombreBox(boxId: number): string {
