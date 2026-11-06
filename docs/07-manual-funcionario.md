@@ -5,7 +5,7 @@
 ## Abrir
 
 Menú Inicio → **Gestion de Boxes**. Verás la grilla del día: un box por fila, las horas
-arriba, separadas en **mañana** y **tarde**.
+arriba, separadas en **mañana** y **tarde**. Si arriba aparece **Solo consulta**, el equipo permite ver la grilla y buscar, sin reservar ni cancelar.
 
 ## Reservar un box
 

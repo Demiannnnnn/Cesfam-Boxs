@@ -1,62 +1,113 @@
 # 06 — Instalación y solución de problemas
 
-Guía para TI o para quien deba reinstalar el sistema. No requiere saber programar.
+Guía para TI o para quien deba instalar o reinstalar el sistema. No requiere saber programar.
 
 ## Qué se instala dónde
 
-| PC | Qué instalar |
-|---|---|
-| PC servidor (uno) | Carpeta `servidor\` con `instalar.bat` **y** el instalador de la app |
-| Demás PCs | Solo el instalador de la app (`Gestion de Boxes_x.y.z_x64.msi`) |
+En todos los computadores se instala el mismo instalador de la aplicación (`Gestion de Boxes_x.y.z_x64.msi`). Al abrirla por primera vez, el asistente configura el modo del equipo ([ADR-020](../.ai-context/decisiones.md#adr-020--2026-11-06--aceptada--tres-modos-de-equipo-elegidos-al-instalar)):
 
-## Instalar el servidor
+| PC | Qué instalar | Modo a elegir en el asistente | Función |
+|---|---|---|---|
+| PC servidor (uno) | Instalador de la app (`.msi`) | **Este equipo es el servidor** | Guarda la base de datos principal, corre la API como servicio y permite reservar |
+| Computadores de trabajo | Instalador de la app (`.msi`) | **Equipo para reservar** (`escritura`) | Permite reservar y cancelar; descarga una copia diaria de respaldo |
+| Computadores de consulta | Instalador de la app (`.msi`) | **Solo consulta** (`lectura`) | Consulta la grilla y busca; no puede crear ni cancelar reservas |
 
-1. Copia la carpeta `servidor\` (contiene `gestion-box-api.exe`, `nssm.exe`, `instalar.bat`,
-   `desinstalar.bat`, `cargar-boxes.ps1` y el archivo opcional `boxes-iniciales.txt`) al escritorio del PC servidor.
-   Si se incluye `boxes-iniciales.txt` (guardado en codificación UTF-8, con un nombre de box por línea)
-   y la base de datos está vacía, el instalador cargará automáticamente dichos boxes.
-2. Clic derecho en `instalar.bat` → **Ejecutar como administrador**.
-3. El script:
-   - crea `C:\ProgramData\GestionBox\`,
-   - copia `gestion-box-api.exe` y `nssm.exe`,
-   - registra el servicio **GestionBoxAPI** con inicio automático y reinicio ante fallas,
-   - abre el firewall: 8000/TCP y 8001/UDP (perfil privado y de dominio),
-   - comprueba el perfil de red y advierte si la conexión está configurada como Pública
-     (los demás computadores no podrán conectarse si no se cambia a Privada en Configuración
-     de Windows → Red e Internet → Propiedades de la conexión → Perfil de red: Privada),
-   - inicia el servicio y comprueba `http://localhost:8000/health`,
-   - si existe `boxes-iniciales.txt` y la base de datos está vacía, ejecuta `cargar-boxes.ps1`
-     para precargar los boxes iniciales.
-4. Debe terminar con el mensaje **"Instalación completada"**. Si dice otra cosa, sigue
-   las instrucciones que muestra.
-5. Instala la app en el mismo PC (paso siguiente). Allí se conectará a `localhost`.
+> [!IMPORTANT]
+> **Modos de equipo y respaldos:** Debe existir **al menos dos computadores con permiso de escritura contando el servidor** ([ADR-020](../.ai-context/decisiones.md#adr-020--2026-11-06--aceptada--tres-modos-de-equipo-elegidos-al-instalar)). Esto asegura que al menos un equipo cliente mantenga copias diarias actualizadas de los datos ([ADR-021](../.ai-context/decisiones.md#adr-021--2026-11-06--aceptada--copia-diaria-de-la-base-en-los-equipos-de-escritura)).
 
-## Instalar la app en cada PC
+## Instalar el servidor desde la aplicación
 
-1. Doble clic en `Gestion de Boxes_x.y.z_x64.msi` → Siguiente → Instalar.
+1. En el computador designado como servidor, instala la aplicación ejecutando `Gestion de Boxes_x.y.z_x64.msi`.
 2. Abre **Gestion de Boxes** desde el menú Inicio.
-3. La primera vez busca el servidor sola (unos segundos). Si no lo encuentra, pide el
-   **nombre del PC servidor** (ej. `PC-SOME`) o su IP.
+3. En la pantalla del asistente inicial (**"¿Cómo se usará este equipo?"**), haz clic en el botón **Este equipo es el servidor**.
+
+![Asistente de primer inicio](img/asistente.png)
+4. Windows mostrará la ventana del Control de Cuentas de Usuario (UAC) solicitando permisos de administrador. **Acepta el aviso**.
+5. La aplicación instalará y configurará automáticamente el servicio de fondo:
+   - Crea `C:\ProgramData\GestionBox\` y su subcarpeta `backups\`.
+   - Copia los ejecutables del servidor (`gestion-box-api.exe` y `nssm.exe`).
+   - Registra el servicio de Windows **GestionBoxAPI** con inicio automático y reinicio ante caídas.
+   - Abre las reglas en el Firewall de Windows para los puertos 8000/TCP y 8001/UDP.
+   - Ajusta los planes de energía para evitar que el servidor se suspenda o hiberne (RNF-14).
+   - Inicia el servicio y verifica la conexión local contra `http://127.0.0.1:8000/health`.
+6. Una vez completado, la aplicación se conectará automáticamente a sí misma y mostrará la grilla de reservas lista para trabajar.
+
+### Ahorro de energía en el servidor (el servidor no debe apagarse)
+
+Para que los demás computadores del CESFAM puedan consultar y reservar durante la jornada, el PC servidor **debe permanecer siempre encendido**.
+
+- Durante la instalación, el script ejecuta automáticamente:
+  ```cmd
+  powercfg /change standby-timeout-ac 0
+  powercfg /change hibernate-timeout-ac 0
+  ```
+  desactivando la suspensión e hibernación automáticas cuando el equipo está conectado a la corriente (RNF-14).
+- **Si aparece una advertencia indicando que falló el ajuste de energía** (o si directivas de grupo locales lo impidieron), configúralo a mano:
+  1. En Windows, ve a **Inicio → Configuración → Sistema → Inicio/apagado y suspensión** (o abre el Panel de control → **Opciones de energía**).
+  2. En el apartado de suspensión ("Con corriente alterna, suspender después de:"), selecciona **Nunca**.
+  3. Si el servidor es un computador portátil, en "Elegir la acción del cierre de la tapa", selecciona **No hacer nada** al estar enchufado.
+
+## Instalar los demás computadores (clientes)
+
+1. En cada uno de los demás PCs, ejecuta `Gestion de Boxes_x.y.z_x64.msi` para instalar la app.
+2. Abre **Gestion de Boxes** desde el menú Inicio.
+3. En el asistente inicial:
+   - Elige **Equipo para reservar** (`escritura`) en los puestos donde los funcionarios deban agendar y cancelar horas.
+   - Elige **Solo consulta** (`lectura`) en boxes o puestos donde solo se requiera revisar la disponibilidad y buscar.
+4. La aplicación buscará automáticamente al servidor en la red local mediante broadcast UDP. Si no lo encuentra en pocos segundos, solicitará por única vez el nombre del computador servidor (ej. `PC-SOME`) o su dirección IP.
+
+## Copia diaria de la base de datos
+
+Cada computador configurado como **Equipo para reservar** (`escritura`) descarga automáticamente una copia consistente de la base de datos desde el servidor ([ADR-021](../.ai-context/decisiones.md#adr-021--2026-11-06--aceptada--copia-diaria-de-la-base-en-los-equipos-de-escritura)):
+
+- **Ubicación:** Las copias se guardan en el disco local de cada equipo de escritura en:
+  ```
+  C:\ProgramData\GestionBox\copias-del-servidor\
+  ```
+- **Nombre:** Siguen el patrón `gestion-box-AAAAMMDD-HHMMSS.db`.
+- **Rotación:** Se conserva un historial de **7 copias locales** (las más recientes); al crearse una nueva copia se elimina automáticamente la más antigua.
+- **Frecuencia:** Se descarga una copia una vez al día. La tarea de fondo se ejecuta al abrir la aplicación y luego cada hora, solicitando la copia mediante `GET /respaldo` únicamente si transcurrieron 24 horas o más desde la última.
+- **Sin configuración:** La descarga ocurre de forma totalmente transparente e independiente; solo requiere que la app de ese equipo se abra al menos una vez al día durante la jornada laboral.
+
+## Instalación manual con `instalar.bat` (alternativa)
+
+La instalación del servidor también puede realizarse manualmente desde la carpeta `servidor\` sin pasar por el asistente de la app (por ejemplo, para servidores dedicados o si se desea precargar un archivo `boxes-iniciales.txt`):
+
+1. Copia la carpeta `servidor\` (contiene `gestion-box-api.exe`, `nssm.exe`, `instalar.bat`, `desinstalar.bat`, `cargar-boxes.ps1` y el opcional `boxes-iniciales.txt`) al escritorio del PC servidor.
+   Si se incluye `boxes-iniciales.txt` (codificación UTF-8, un nombre de box por línea) y la base está vacía, el instalador precargará dichos boxes.
+2. Clic derecho en `instalar.bat` → **Ejecutar como administrador**.
+3. El script ejecuta los pasos de configuración, abre el firewall, ajusta la energía e inicia el servicio.
+4. Debe terminar con el mensaje **"Instalación completada"**.
+
+### Parámetros opcionales de `instalar.bat`
+
+- **`/sinpausa`**: Ejecuta el script sin detenerse en confirmaciones interactivas (`pause`). Es el parámetro utilizado por la aplicación para la instalación desatendida.
+- **`/respaldo "<ruta>"`**: Si se proporciona una ruta válida a una copia de respaldo `.db` y la base en `C:\ProgramData\GestionBox\gestion-box.db` aún no existe, el script copia dicho archivo antes de iniciar el servicio. Se utiliza para restaurar datos en un servidor nuevo o durante la promoción de emergencia ([ADR-022](../.ai-context/decisiones.md#adr-022--2026-11-06--aceptada--promoción-a-servidor-oculta-solo-si-el-servidor-murió)).
 
 ## Desinstalar
 
-- Servidor: `desinstalar.bat` como administrador. **No borra** la base de datos ni los
-  respaldos de `C:\ProgramData\GestionBox\` (hay que borrarlos a mano si se desea).
-- App: Configuración de Windows → Aplicaciones → Gestion de Boxes → Desinstalar.
+- **Servidor:** Ejecuta `desinstalar.bat` como administrador. Detiene y elimina el servicio GestionBoxAPI y retira las reglas del firewall. **No borra** la base de datos ni las copias en `C:\ProgramData\GestionBox\` (deben borrarse a mano si se desea).
+- **App:** Configuración de Windows → Aplicaciones → Aplicaciones instaladas → Gestion de Boxes → Desinstalar.
 
-## Restaurar un respaldo
+## Restaurar un respaldo en el servidor existente
+
+Si la base de datos se dañó pero el computador servidor sigue operativo:
 
 1. Abre una consola como administrador y detén el servicio:
-   `C:\ProgramData\GestionBox\nssm.exe stop GestionBoxAPI`
-2. En `C:\ProgramData\GestionBox\backups\` elige el respaldo a restaurar (el nombre incluye fecha y hora, ej. `gestion-box-AAAAMMDD-HHMMSS.db`).
+   ```cmd
+   C:\ProgramData\GestionBox\nssm.exe stop GestionBoxAPI
+   ```
+2. En `C:\ProgramData\GestionBox\backups\` elige el respaldo a restaurar (ej. `gestion-box-AAAAMMDD-HHMMSS.db`).
 3. Aparta la base actual y sus archivos auxiliares de WAL para evitar corrupción:
-   - Renombra `gestion-box.db` actual a `gestion-box.db.dañada` (no lo borres todavía).
+   - Renombra `gestion-box.db` a `gestion-box.db.dañada`.
    - Si existen, renombra también `gestion-box.db-wal` a `gestion-box.db-wal.dañada` y `gestion-box.db-shm` a `gestion-box.db-shm.dañada`.
-4. Copia el respaldo elegido a `C:\ProgramData\GestionBox\gestion-box.db`.
-5. Inicia el servicio:
-   `C:\ProgramData\GestionBox\nssm.exe start GestionBoxAPI`
+4. Copia el archivo de respaldo elegido a `C:\ProgramData\GestionBox\gestion-box.db`.
+5. Inicia nuevamente el servicio:
+   ```cmd
+   C:\ProgramData\GestionBox\nssm.exe start GestionBoxAPI
+   ```
    *(Al arrancar, la API crea automáticamente un nuevo respaldo en `backups\`; esto es normal y esperado).*
-6. Abre la app y verifica las reservas restauradas.
+6. Abre la app y verifica que las reservas se visualicen correctamente.
 
 ## Si el servidor se daña
 
@@ -129,7 +180,7 @@ hora, nivel (`INFO`, `WARN`, `ERROR`) y mensaje. Busca `ERROR` cerca de la hora 
 | "No se pudo crear el box" al cargar boxes | El nombre del box ya existe en la base (duplicado) o el archivo `boxes-iniciales.txt` no está guardado en codificación UTF-8. Los boxes que falten se pueden agregar desde la app con el botón **⚙ Boxes**. |
 | La búsqueda automática nunca funciona | El firewall bloquea 8001/UDP o la red bloquea broadcast. Re-ejecuta `instalar.bat`; si persiste, usa el nombre del PC. |
 | "Ese bloque acaba de ser tomado" | Normal: otra persona reservó ese bloque segundos antes. Elige otro. |
-| Disco lleno | Los respaldos se limitan a 30; revisa otros archivos del PC. La base normalmente pesa pocos MB. |
+| Disco lleno | Los respaldos del servidor se limitan a 30 y las copias diarias en clientes a 7; revisa otros archivos del PC. La base normalmente pesa pocos MB. |
 
 ## Compilar los entregables (desarrollo)
 
