@@ -101,4 +101,7 @@ export const api = {
   exportarCsv: (desde: string, hasta: string, ruta: string) =>
     llamar<number>("exportar_csv", { desde, hasta, ruta }),
   estadoCopias: () => llamar<EstadoCopias>("estado_copias"),
+  abrirAvanzado: (clave: string) => llamar<boolean>("abrir_avanzado", { clave }),
+  cambiarModo: (modo: ModoEquipo) => llamar<void>("cambiar_modo", { modo }),
+  promoverAServidor: () => llamar<void>("promover_a_servidor"),
 };
