@@ -28,7 +28,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["msi"],
+    "targets": [
+      "msi",
+      "nsis"
+    ],
     "resources": [
       "servidor/*"
     ],
@@ -43,7 +46,12 @@
     ],
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper" },
-      "wix": { "language": "es-ES" }
+      "wix": { "language": "es-ES" },
+      "nsis": {
+        "languages": [
+          "Spanish"
+        ]
+      }
     }
   }
 }

@@ -26,3 +26,14 @@ Al preparar el paquete para el servidor, se debe reunir en una carpeta `servidor
 ## Integración con el instalador de la app
 
 Para que la app de escritorio pueda instalar el servidor automáticamente desde su asistente (T-8.2), los archivos `gestion-box-api.exe`, `nssm.exe`, `instalar.bat` y `desinstalar.bat` deben copiarse a `app/src-tauri/servidor/` antes de ejecutar `npm run tauri build`.
+
+## Obtener los instaladores desde GitHub Actions (CI)
+
+Para evitar la compilación y preparación manual en un entorno de desarrollo, el repositorio incluye el workflow automatizado **"Instalador Windows"** (`.github/workflows/instalador-windows.yml`):
+
+1. El responsable del proyecto accede a la pestaña **Actions** en GitHub.
+2. Selecciona el workflow **Instalador Windows** en la barra lateral izquierda y hace clic en el botón **Run workflow**.
+3. Al finalizar la ejecución, se descarga el artefacto **`instalador-windows`** (archivo comprimido `.zip` que contiene los instaladores generados):
+   - **`*-setup.exe`** (NSIS): Es el instalador más simple y recomendado para uso general en los computadores del CESFAM.
+   - **`*.msi`** (WiX): Destinado a instalaciones corporativas administradas mediante directivas de grupo (GPO).
+4. Durante la ejecución en GitHub Actions, la versión de NSSM utilizada se descarga y valida contra su hash SHA-256 (`99f5045fffbffb745d67fe3a065a953c4a3d9c253b868892d9b685b0ee7d07b8`), garantizando la integridad de los componentes del servidor incluidos en la app.
