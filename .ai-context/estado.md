@@ -14,6 +14,7 @@
 | 5 — Entrega | manual y guía implementados, validación manual pendiente, PDF en `docs/pdf/`; T-5.1, T-5.4 y T-5.5 bloqueadas (terreno) |
 | 6 — Grilla agenda, rangos y semana | implementada (ADR-014, ADR-015, ADR-016) |
 | 7 — Funcionarios, etiquetas y búsqueda | en curso: T-7.1 completada, T-7.2 y T-7.3 implementadas (validación manual pendiente) |
+| 8 — Varios equipos | documentada (ADR-020 a ADR-022, T-8.1 a T-8.6); implementación pendiente |
 
 ## Ramas activas
 
@@ -22,9 +23,7 @@
 | `dev/documentacion-base` | README, AGENTS.md, docs/, .ai-context/, tasks/ |
 | `dev/fase-1-2-api` | workspace, crate shared, API completa (sobre `dev/documentacion-base`) |
 | `dev/fase-3-app` | app Tauri completa (sobre `dev/fase-1-2-api`) |
-| `dev/fase-4-instalacion` | `instalador/`, CRT estático, configuración offline del `.msi` |
-| `dev/fase-5-documentacion` | manual, guía y PDF (sobre `dev/fase-4-instalacion`) |
-| `dev/fase-7-funcionarios-etiquetas` | fase 7 (ADR-017): T-7.1 completada, T-7.2 implementada |
+| `dev/fase-8-multiequipo` | fase 8: modos de equipo, copia diaria y servidor de reemplazo |
 
 ## Supuestos vigentes (hasta cerrar fase 0)
 
