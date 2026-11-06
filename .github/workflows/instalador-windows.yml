@@ -1,0 +1,95 @@
+# Workflow de GitHub Actions para construir los instaladores de Windows de Gestión de Boxes.
+# Genera los instaladores MSI (WiX) y NSIS (-setup.exe) de la app con el servidor (API + NSSM + scripts) integrado.
+# Este flujo se ejecuta únicamente a petición manual y no realiza publicaciones ni firmas de código.
+
+name: Instalador Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  instalador:
+    name: Construir instaladores de Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      # Suma SHA-256 oficial verificada de la compilación de NSSM (coincide con Chocolatey)
+      NSSM_SHA256: 99f5045fffbffb745d67fe3a065a953c4a3d9c253b868892d9b685b0ee7d07b8
+
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar toolchain de Rust
+        # Configura Rust estable con el target MSVC de 64 bits usando el rustup preinstalado
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Configurar Node.js
+        # Configura Node LTS y activa la caché de dependencias npm según package-lock.json
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Compilar la API en modo release
+        # Compila el ejecutable del servicio de fondo (gestion-box-api.exe) con CRT estático
+        run: cargo build --release -p gestion-box-api
+
+      - name: Descargar, verificar y extraer NSSM
+        # Descarga NSSM a una carpeta temporal, verifica su SHA-256 y extrae el ejecutable
+        run: |
+          $url = 'https://nssm.cc/ci/nssm-2.24-101-g897c7ad.zip'
+          $zipPath = Join-Path $env:RUNNER_TEMP 'nssm-2.24-101-g897c7ad.zip'
+          $extractDir = Join-Path $env:RUNNER_TEMP 'nssm'
+
+          Write-Host "Descargando NSSM desde $url..."
+          Invoke-WebRequest -Uri $url -OutFile $zipPath
+
+          $actualHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
+          if ($actualHash -ne $env:NSSM_SHA256) {
+            throw "Error: la suma SHA-256 de NSSM ($actualHash) no coincide con la esperada ($($env:NSSM_SHA256))."
+          }
+          Write-Host "Suma SHA-256 verificada correctamente: $actualHash"
+
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+
+      - name: Copiar recursos del servidor a la carpeta de empaquetado
+        # Copia la API compilada, nssm.exe y los scripts .bat a la carpeta de recursos de Tauri
+        run: |
+          $nssmExe = Join-Path $env:RUNNER_TEMP 'nssm\nssm-2.24-101-g897c7ad\win64\nssm.exe'
+          $destinoServidor = 'app\src-tauri\servidor'
+
+          Copy-Item 'target\release\gestion-box-api.exe' -Destination $destinoServidor
+          Copy-Item $nssmExe -Destination $destinoServidor
+          Copy-Item 'instalador\instalar.bat' -Destination $destinoServidor
+          Copy-Item 'instalador\desinstalar.bat' -Destination $destinoServidor
+
+          Write-Host "Archivos preparados en $destinoServidor:"
+          Get-ChildItem -Path $destinoServidor
+
+      - name: Compilar instaladores MSI y NSIS de la aplicación
+        # Instala dependencias del frontend y compila los paquetes de instalación con Tauri
+        working-directory: app
+        run: |
+          npm ci
+          npm run tauri build -- --bundles msi,nsis
+
+      - name: Subir artefacto con instaladores
+        # Publica los instaladores generados como artefacto de la ejecución
+        uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: |
+            target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
