@@ -55,6 +55,20 @@ impl ConfigLocal {
         Ok(())
     }
 
+    /// Pasa el modo del equipo a Servidor (para instalación inicial o promoción desde Escritura).
+    /// Cubre RF-16 y RNF-12.
+    pub fn pasar_a_servidor(&mut self) -> Result<(), &'static str> {
+        match self.modo {
+            None | Some(ModoEquipo::Escritura) | Some(ModoEquipo::Servidor) => {
+                self.modo = Some(ModoEquipo::Servidor);
+                Ok(())
+            }
+            Some(ModoEquipo::Lectura) => {
+                Err("No se puede convertir un equipo de lectura en servidor.")
+            }
+        }
+    }
+
     /// Guarda de forma atómica: escribe un temporal y lo renombra, para no dejar
     /// un archivo a medias si se corta la luz.
     pub fn guardar(&self, ruta: &Path) -> io::Result<()> {
@@ -192,5 +206,26 @@ mod tests {
         assert_eq!(config.modo, None);
         assert_eq!(config.servidor.as_deref(), Some("10.0.0.5:8000"));
         assert_eq!(config.ultimo_funcionario_id, None);
+    }
+
+    #[test]
+    fn pasar_a_servidor_acepta_none_escritura_y_servidor_y_rechaza_lectura() {
+        let mut config = ConfigLocal {
+            modo: None,
+            ..ConfigLocal::default()
+        };
+        assert!(config.pasar_a_servidor().is_ok());
+        assert_eq!(config.modo, Some(ModoEquipo::Servidor));
+
+        config.modo = Some(ModoEquipo::Escritura);
+        assert!(config.pasar_a_servidor().is_ok());
+        assert_eq!(config.modo, Some(ModoEquipo::Servidor));
+
+        assert!(config.pasar_a_servidor().is_ok());
+        assert_eq!(config.modo, Some(ModoEquipo::Servidor));
+
+        config.modo = Some(ModoEquipo::Lectura);
+        assert!(config.pasar_a_servidor().is_err());
+        assert_eq!(config.modo, Some(ModoEquipo::Lectura));
     }
 }

@@ -73,6 +73,24 @@ impl EstadoApp {
         Ok(())
     }
 
+    /// Registra la instalación exitosa del servidor local en este equipo (RF-16, RNF-12).
+    pub fn registrar_servidor_local(&self, equipo: String) -> Resultado<()> {
+        let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
+        config
+            .pasar_a_servidor()
+            .map_err(ErrorUi::datos_invalidos)?;
+        config.servidor = Some("127.0.0.1:8000".to_owned());
+        config.equipo_servidor = Some(equipo);
+        if let Err(error) = config.guardar(&self.ruta_config) {
+            eprintln!("[gestion-box] no se pudo guardar cliente.json: {error}");
+            return Err(ErrorUi::new(
+                "interno",
+                "No se pudo guardar la configuración del servidor.",
+            ));
+        }
+        Ok(())
+    }
+
     fn cliente(&self) -> Resultado<ClienteApi> {
         self.cliente
             .lock()

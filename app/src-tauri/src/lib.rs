@@ -7,6 +7,7 @@ pub mod conexion;
 pub mod config_local;
 pub mod errores;
 pub mod exportar;
+pub mod servidor_local;
 
 use tauri::Manager;
 
@@ -49,6 +50,7 @@ pub fn ejecutar() {
             comandos::cancelar_reserva,
             comandos::cancelar_grupo,
             comandos::exportar_csv,
+            servidor_local::instalar_servidor,
         ])
         .run(tauri::generate_context!());
 

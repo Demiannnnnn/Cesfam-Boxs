@@ -166,7 +166,7 @@ export const textos = {
     titulo: "¿Cómo se usará este equipo?",
     servidorTitulo: "Este equipo es el servidor",
     servidorDescripcion: "Guarda los datos. Debe quedar siempre encendido.",
-    servidorFaltaInstalar: "Falta instalar el servidor",
+    instalandoServidor: "Instalando el servidor…",
     escrituraTitulo: "Equipo para reservar",
     escrituraDescripcion: "Reserva y cancela. Guarda una copia diaria de los datos.",
     lecturaTitulo: "Solo consulta",
