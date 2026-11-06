@@ -175,6 +175,27 @@ export const textos = {
   barra: {
     soloConsulta: "Solo consulta",
   },
+  avanzado: {
+    titulo: "Opciones avanzadas",
+    pedirClave: "Ingresa la clave de acceso:",
+    clavePlaceholder: "Clave",
+    entrar: "Entrar",
+    claveIncorrecta: "Clave incorrecta",
+    seccionCopias: "Copias de respaldo en este equipo",
+    sinCopias: "Aún no hay copias",
+    resumenCopias: (fecha: string, cantidad: number) =>
+      `Última copia: ${fecha} (${cantidad} ${cantidad === 1 ? "copia disponible" : "copias disponibles"})`,
+    cambiarAConsulta: "Cambiar a solo consulta",
+    cambiarAEscritura: "Cambiar a equipo para reservar",
+    esServidor: "Este equipo es el servidor. Para cambiarlo hay que reinstalar la app.",
+    promoverTitulo: "Usar este equipo como servidor",
+    promoverTexto:
+      "Úsalo solo si el servidor anterior se dañó y no volverá. El equipo anterior debe desinstalarse antes de volver a usarse.",
+    promoverPlaceholder: "Escribe SERVIDOR para confirmar",
+    confirmar: "Confirmar",
+    buscandoServidores: "Buscando servidores en la red…",
+    instalandoServidor: "Instalando el servidor…",
+  },
   comunes: {
     cerrar: "Cerrar",
     volver: "Volver",

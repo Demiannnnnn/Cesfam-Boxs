@@ -1,6 +1,7 @@
 //! Backend de la app de escritorio. Toda la red (HTTP y UDP) vive aquí;
 //! la interfaz solo invoca comandos (ADR-007).
 
+pub mod avanzado;
 pub mod cliente_api;
 pub mod comandos;
 pub mod conexion;
@@ -59,6 +60,9 @@ pub fn ejecutar() {
             comandos::exportar_csv,
             comandos::estado_copias,
             servidor_local::instalar_servidor,
+            avanzado::abrir_avanzado,
+            avanzado::cambiar_modo,
+            avanzado::promover_a_servidor,
         ])
         .run(tauri::generate_context!());
 

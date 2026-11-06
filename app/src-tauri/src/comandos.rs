@@ -79,6 +79,22 @@ impl EstadoApp {
         Ok(())
     }
 
+    /// Cambia el modo del equipo entre escritura y lectura guardando la configuración (RF-19, ADR-022).
+    pub fn cambiar_modo(&self, nuevo: ModoEquipo) -> Resultado<()> {
+        let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
+        config
+            .cambiar_entre_escritura_y_lectura(nuevo)
+            .map_err(ErrorUi::datos_invalidos)?;
+        if let Err(error) = config.guardar(&self.ruta_config) {
+            eprintln!("[gestion-box] no se pudo guardar cliente.json: {error}");
+            return Err(ErrorUi::new(
+                "interno",
+                "No se pudo guardar la configuración del equipo.",
+            ));
+        }
+        Ok(())
+    }
+
     /// Registra la instalación exitosa del servidor local en este equipo (RF-16, RNF-12).
     pub fn registrar_servidor_local(&self, equipo: String) -> Resultado<()> {
         let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());

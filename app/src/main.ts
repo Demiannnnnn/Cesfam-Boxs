@@ -9,6 +9,7 @@
  */
 import { api } from "./api";
 import { mostrarAsistente } from "./componentes/asistente";
+import { abrirAvanzado } from "./componentes/avanzado";
 import { mostrarAviso } from "./componentes/aviso";
 import { abrirBuscar, type AccionesBuscar } from "./componentes/buscar";
 import { renderizarConexion } from "./componentes/conexion";
@@ -247,6 +248,34 @@ function enlazarEventos(): void {
   });
   porId("btn-exportar").addEventListener("click", () => abrirExportar());
   document.addEventListener("keydown", (evento) => {
+    if (
+      (evento.ctrlKey || evento.metaKey) &&
+      evento.altKey &&
+      evento.shiftKey &&
+      evento.code === "KeyS"
+    ) {
+      evento.preventDefault();
+      if (!hayDialogoAbierto()) {
+        abrirAvanzado({
+          alCambiarModo: (nuevoModo) => {
+            estado.modo = nuevoModo;
+            renderizar();
+          },
+          alPromoverAServidor: async () => {
+            estado.modo = "servidor";
+            renderizar();
+            try {
+              const res = await api.conectar();
+              alConectar(res);
+            } catch (e) {
+              mostrarAviso((e as ErrorUi).mensaje);
+            }
+            void refrescar();
+          },
+        });
+      }
+      return;
+    }
     if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === "f") {
       evento.preventDefault();
       if (!hayDialogoAbierto()) {

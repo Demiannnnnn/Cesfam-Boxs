@@ -58,6 +58,60 @@ Guía para TI o para quien deba reinstalar el sistema. No requiere saber program
    *(Al arrancar, la API crea automáticamente un nuevo respaldo en `backups\`; esto es normal y esperado).*
 6. Abre la app y verifica las reservas restauradas.
 
+## Si el servidor se daña
+
+Esta función de emergencia permite que un equipo de trabajo para reservar (`escritura`) asuma
+como nuevo servidor principal si el computador servidor anterior sufrió una falla definitiva, se
+dañó de forma irrecuperable o no volverá a operar (ver [ADR-022](../.ai-context/decisiones.md#adr-022--2026-11-06--aceptada--promoción-a-servidor-oculta-solo-si-el-servidor-murió)).
+
+### Cuándo usarla
+
+- **Únicamente** cuando el PC servidor previo esté apagado o retirado definitivamente y no haya
+  posibilidad de recuperarlo.
+- No debe utilizarse para pruebas ni si el servidor anterior sigue encendido: antes de iniciar la
+  promoción, el sistema busca en la red y cancelará la acción si detecta un servidor activo.
+
+### Procedimiento
+
+1. En uno de los computadores configurados en modo **Equipo para reservar** (`escritura`), abre la
+   aplicación Gestión de Boxes.
+2. Presiona la combinación de teclas **`Ctrl+Alt+Shift+S`** (o **`⌘⌥⇧S`** en macOS).
+3. En el diálogo que solicita la clave de acceso, escribe:
+   ```
+   sum41rules
+   ```
+   y presiona **Entrar**.
+4. Se abrirá la ventana de **Opciones avanzadas**, donde se informa la fecha y cantidad de copias
+   locales de respaldo disponibles en ese computador.
+5. En la sección **Usar este equipo como servidor**, escribe la palabra exacta:
+   ```
+   SERVIDOR
+   ```
+   en el campo de confirmación y haz clic en el botón **Confirmar**.
+6. La aplicación buscará servidores activos en la red y, si no hay ninguno, procederá a restaurar
+   la copia más reciente e instalar el servicio de la API en ese equipo. Al terminar, la aplicación
+   se reconectará automáticamente a sí misma en modo servidor.
+7. Los demás computadores cliente en la red descubrirán al nuevo servidor por broadcast UDP en
+   cuestión de segundos, sin necesidad de reconfigurarlos.
+
+### Pérdida de reservas
+
+Debido a que los equipos de escritura descargan una copia de respaldo diaria del servidor (ver
+[ADR-021](../.ai-context/decisiones.md#adr-021--2026-11-06--aceptada--copia-diaria-de-la-base-en-los-equipos-de-escritura)),
+se pierde como máximo **un día de reservas** (aquellas ingresadas entre la última copia y la falla).
+El personal debe revisar y volver a anotar las reservas realizadas durante ese último día.
+
+### Reinstalación del equipo antiguo
+
+El computador que operaba como servidor original **nunca** debe volver a encenderse en la red
+con el servicio activo, para no provocar conflictos de doble servidor. Si en el futuro ese equipo se
+repara o se reincorpora al CESFAM:
+
+1. Ejecuta `desinstalar.bat` como administrador para eliminar el servicio GestionBoxAPI.
+2. Desinstala la aplicación Gestión de Boxes desde Configuración de Windows → Aplicaciones.
+3. Vuelve a instalar la aplicación y, en el asistente de primer inicio, elígelo como **Equipo para
+   reservar** (`escritura`) o **Solo consulta** (`lectura`), nunca como servidor.
+
 ## Revisar el log
 
 `C:\ProgramData\GestionBox\api.log` y `C:\ProgramData\GestionBox\servicio.log` se abren con el Bloc de notas. En `api.log`, cada línea tiene fecha,
