@@ -325,5 +325,5 @@ curl -s "localhost:8000/reservas?fecha=2026-10-01"
 curl -s -X POST localhost:8000/reservas -H 'content-type: application/json' \
      -d '{"box_id":1,"fecha":"2026-10-01","bloque":4,"funcionario_id":1}'
 curl -s -i -X DELETE localhost:8000/reservas/1
-curl -s -i localhost:8000/respaldo -o respaldo.db
+curl -s localhost:8000/respaldo -o respaldo.db
 ```

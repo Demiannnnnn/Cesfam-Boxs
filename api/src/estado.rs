@@ -42,12 +42,18 @@ fn nombre_equipo() -> String {
 pub struct AppState {
     db: Arc<Mutex<Connection>>,
     pub info: Arc<InfoServidor>,
+    /// Carpeta donde se crean los temporales de `GET /respaldo` (RF-18).
     pub carpeta_respaldos: PathBuf,
 }
 
 impl AppState {
+    /// Constructor para tests. Usa una carpeta temporal del sistema para los respaldos.
     pub fn new(conn: Connection, info: InfoServidor) -> Self {
-        Self::con_carpeta_respaldos(conn, info, PathBuf::from("backups"))
+        Self::con_carpeta_respaldos(
+            conn,
+            info,
+            std::env::temp_dir().join("gestion-box-respaldos-tests"),
+        )
     }
 
     /// Construye el estado asociando la carpeta donde se generan los respaldos (ADR-021).
