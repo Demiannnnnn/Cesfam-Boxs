@@ -53,6 +53,8 @@ export const api = {
   preferencias: () => llamar<Preferencias>("preferencias"),
   modoEquipo: () => llamar<ModoEquipo | null>("modo_equipo"),
   elegirModo: (modo: ModoEquipo) => llamar<void>("elegir_modo", { modo }),
+  instalarServidor: (respaldo: string | null = null) =>
+    llamar<void>("instalar_servidor", { respaldo }),
   conectar: () => llamar<ResultadoConexion>("conectar"),
   conectarManual: (direccion: string) =>
     llamar<ResultadoConexion>("conectar_manual", { direccion }),

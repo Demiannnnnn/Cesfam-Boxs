@@ -275,9 +275,6 @@ async function iniciar(): Promise<void> {
     let modo = modoGuardado;
     if (modo === null) {
       modo = await mostrarAsistente();
-      if (modo === "servidor") {
-        mostrarAviso(textos.asistente.servidorFaltaInstalar);
-      }
     }
     estado.modo = modo;
     renderizar();

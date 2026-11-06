@@ -9,3 +9,5 @@ app/src-tauri/gen/
 *.db-shm
 /instalador/*.exe
 /instalador/boxes-iniciales.txt
+/app/src-tauri/servidor/*
+!/app/src-tauri/servidor/LEEME.txt

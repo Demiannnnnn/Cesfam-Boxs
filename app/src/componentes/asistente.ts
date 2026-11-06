@@ -42,14 +42,27 @@ export function mostrarAsistente(): Promise<ModoEquipo> {
 
     const botones: HTMLButtonElement[] = [];
 
+    const mensajeEstado = el("p", {
+      clase: "asistente__estado",
+      atributos: { role: "status" },
+    });
+    mensajeEstado.hidden = true;
+
     const elegir = async (modo: ModoEquipo) => {
       dialogo.mostrarError(null);
       for (const btn of botones) btn.disabled = true;
       try {
-        await api.elegirModo(modo);
+        if (modo === "servidor") {
+          mensajeEstado.textContent = textos.asistente.instalandoServidor;
+          mensajeEstado.hidden = false;
+          await api.instalarServidor(null);
+        } else {
+          await api.elegirModo(modo);
+        }
         dialogo.cerrar();
         resolver(modo);
       } catch (error) {
+        mensajeEstado.hidden = true;
         dialogo.mostrarError((error as ErrorUi).mensaje);
         for (const btn of botones) btn.disabled = false;
       }
@@ -74,6 +87,6 @@ export function mostrarAsistente(): Promise<ModoEquipo> {
       }),
     );
 
-    dialogo.cuerpo.append(contenedor);
+    dialogo.cuerpo.append(contenedor, mensajeEstado);
   });
 }

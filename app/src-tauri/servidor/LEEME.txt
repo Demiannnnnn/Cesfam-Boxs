@@ -1,0 +1,14 @@
+Archivos para el instalador del servidor
+=========================================
+
+Esta carpeta contiene los archivos que se empaquetan dentro del instalador de la app
+(Tauri `bundle.resources`). Ninguno de estos binarios ni scripts se versiona aquí,
+a excepción de este archivo informativo.
+
+Antes de ejecutar `tauri build` para generar el instalador (.msi), se deben copiar
+en esta carpeta los siguientes archivos:
+
+1. `gestion-box-api.exe`: Compilado en modo release (`target\release\gestion-box-api.exe`).
+2. `nssm.exe`: NSSM de 64 bits versión 2.24-101 o posterior.
+3. `instalar.bat`: Copiado desde la carpeta `instalador\`.
+4. `desinstalar.bat`: Copiado desde la carpeta `instalador\`.

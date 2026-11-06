@@ -8,6 +8,7 @@ pub mod config_local;
 pub mod copia_diaria;
 pub mod errores;
 pub mod exportar;
+pub mod servidor_local;
 
 use tauri::Manager;
 
@@ -57,6 +58,7 @@ pub fn ejecutar() {
             comandos::cancelar_grupo,
             comandos::exportar_csv,
             comandos::estado_copias,
+            servidor_local::instalar_servidor,
         ])
         .run(tauri::generate_context!());
 
