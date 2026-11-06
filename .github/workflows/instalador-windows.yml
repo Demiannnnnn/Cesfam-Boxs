@@ -74,7 +74,7 @@ jobs:
           Copy-Item 'instalador\instalar.bat' -Destination $destinoServidor
           Copy-Item 'instalador\desinstalar.bat' -Destination $destinoServidor
 
-          Write-Host "Archivos preparados en $destinoServidor:"
+          Write-Host "Archivos preparados en ${destinoServidor}:"
           Get-ChildItem -Path $destinoServidor
 
       - name: Compilar instaladores MSI y NSIS de la aplicación
