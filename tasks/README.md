@@ -116,7 +116,7 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 | ID | Tarea | Cubre | Depende de | Estado |
 |---|---|---|---|---|
 | [T-8.1](fase-8/T-8.1-modo-del-equipo.md) | Modo del equipo y asistente de primer inicio | RF-16, RF-17 | fase 7 | implementada — validación manual pendiente |
-| [T-8.2](fase-8/T-8.2-instalar-servidor-desde-la-app.md) | Instalar el servidor desde la app | RF-16, RNF-12, RNF-14 | T-8.1, T-4.2, T-4.4 | pendiente |
+| [T-8.2](fase-8/T-8.2-instalar-servidor-desde-la-app.md) | Instalar el servidor desde la app | RF-16, RNF-12, RNF-14 | T-8.1, T-4.2, T-4.4 | implementada — validación manual pendiente |
 | [T-8.3](fase-8/T-8.3-api-respaldo.md) | API: entregar una copia consistente de la base | RF-18 | fase 7 | completada |
 | [T-8.4](fase-8/T-8.4-copia-diaria.md) | Copia diaria en los equipos de escritura | RF-18 | T-8.1, T-8.3 | implementada — validación manual pendiente |
 | [T-8.5](fase-8/T-8.5-servidor-de-reemplazo.md) | Opción oculta: servidor de reemplazo y cambio de modo | RF-19 | T-8.2, T-8.4 | pendiente |
