@@ -1,11 +1,16 @@
 # Workflow de GitHub Actions para construir los instaladores de Windows de Gestión de Boxes.
 # Genera los instaladores MSI (WiX) y NSIS (-setup.exe) de la app con el servidor (API + NSSM + scripts) integrado.
-# Este flujo se ejecuta únicamente a petición manual y no realiza publicaciones ni firmas de código.
+# Se ejecuta a petición manual y en cada pull request hacia develop (para probar el instalador antes de unir).
+# No realiza publicaciones ni firmas de código.
 
 name: Instalador Windows
 
 on:
   workflow_dispatch:
+  # GitHub solo ofrece "Run workflow" para archivos en la rama por defecto (main);
+  # el disparo en PR permite obtener el instalador desde la rama antes del merge.
+  pull_request:
+    branches: [develop]
 
 permissions:
   contents: read
