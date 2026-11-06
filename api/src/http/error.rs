@@ -41,6 +41,15 @@ impl ErrorApi {
             "La ruta solicitada no existe",
         )
     }
+
+    /// 500 con un mensaje de error interno en español.
+    pub fn error_interno(mensaje: impl Into<String>) -> Self {
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            CodigoError::ErrorInterno,
+            mensaje,
+        )
+    }
 }
 
 impl From<ErrorServicio> for ErrorApi {

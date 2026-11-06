@@ -1,5 +1,6 @@
 //! Estado compartido de la aplicación, inyectado en los handlers de Axum.
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
@@ -41,14 +42,30 @@ fn nombre_equipo() -> String {
 pub struct AppState {
     db: Arc<Mutex<Connection>>,
     pub info: Arc<InfoServidor>,
+    pub carpeta_respaldos: PathBuf,
 }
 
 impl AppState {
     pub fn new(conn: Connection, info: InfoServidor) -> Self {
+        Self::con_carpeta_respaldos(conn, info, PathBuf::from("backups"))
+    }
+
+    /// Construye el estado asociando la carpeta donde se generan los respaldos (ADR-021).
+    pub fn con_carpeta_respaldos(
+        conn: Connection,
+        info: InfoServidor,
+        carpeta_respaldos: PathBuf,
+    ) -> Self {
         Self {
             db: Arc::new(Mutex::new(conn)),
             info: Arc::new(info),
+            carpeta_respaldos,
         }
+    }
+
+    /// Devuelve una referencia compartida a la conexión protegida por el mutex.
+    pub fn conexion(&self) -> Arc<Mutex<Connection>> {
+        Arc::clone(&self.db)
     }
 
     /// Ejecuta `operacion` con la conexión en un hilo bloqueante, sin bloquear el runtime.

@@ -53,7 +53,7 @@ pub async fn ejecutar(config: Config) -> Result<(), ErrorArranque> {
     let info = InfoServidor::actual(config.puerto_http);
     iniciar_descubrimiento(&config, &info);
 
-    let estado = AppState::new(conn, info);
+    let estado = AppState::con_carpeta_respaldos(conn, info, config.carpeta_respaldos);
     let direccion = ("0.0.0.0", config.puerto_http);
     let listener =
         TcpListener::bind(direccion)
@@ -64,10 +64,13 @@ pub async fn ejecutar(config: Config) -> Result<(), ErrorArranque> {
             })?;
     tracing::info!(puerto = config.puerto_http, "API escuchando");
 
-    axum::serve(listener, http::crear_router(estado))
-        .with_graceful_shutdown(senal_de_detencion())
-        .await
-        .map_err(ErrorArranque::Servidor)?;
+    axum::serve(
+        listener,
+        http::crear_router(estado).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(senal_de_detencion())
+    .await
+    .map_err(ErrorArranque::Servidor)?;
 
     tracing::info!("API detenida");
     Ok(())
