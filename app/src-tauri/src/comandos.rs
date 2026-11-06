@@ -1,8 +1,9 @@
 //! Comandos `invoke` expuestos a la interfaz. Cada comando es delgado: obtiene el
 //! cliente, llama a la API y traduce el error a [`ErrorUi`].
 
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
 use gestion_box_shared::horario::Horario;
 use gestion_box_shared::{
@@ -22,11 +23,14 @@ use crate::exportar;
 
 type Resultado<T> = Result<T, ErrorUi>;
 
-/// Estado de la app compartido entre comandos.
+/// Estado de la app compartido entre comandos y la tarea de respaldo.
+#[derive(Clone)]
 pub struct EstadoApp {
     ruta_config: PathBuf,
-    config: Mutex<ConfigLocal>,
-    cliente: Mutex<Option<ClienteApi>>,
+    config: Arc<Mutex<ConfigLocal>>,
+    cliente: Arc<Mutex<Option<ClienteApi>>>,
+    notificador_copia: Arc<tokio::sync::Notify>,
+    en_descarga: Arc<AtomicBool>,
 }
 
 impl EstadoApp {
@@ -35,19 +39,21 @@ impl EstadoApp {
         let config = ConfigLocal::cargar(&ruta_config);
         Self {
             ruta_config,
-            config: Mutex::new(config),
-            cliente: Mutex::new(None),
+            config: Arc::new(Mutex::new(config)),
+            cliente: Arc::new(Mutex::new(None)),
+            notificador_copia: Arc::new(tokio::sync::Notify::new()),
+            en_descarga: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    fn config(&self) -> ConfigLocal {
+    pub fn config(&self) -> ConfigLocal {
         self.config
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone()
     }
 
-    fn modificar_config(&self, cambio: impl FnOnce(&mut ConfigLocal)) {
+    pub fn modificar_config(&self, cambio: impl FnOnce(&mut ConfigLocal)) {
         let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
         let antes = config.clone();
         cambio(&mut config);
@@ -81,7 +87,7 @@ impl EstadoApp {
             .ok_or_else(ErrorUi::sin_servidor)
     }
 
-    /// Fija el servidor actual y lo recuerda (RF-10).
+    /// Fija el servidor actual y lo recuerda (RF-10). Notifica a la tarea de respaldo.
     fn usar_servidor(&self, servidor: &Servidor) -> Resultado<()> {
         let cliente =
             ClienteApi::new(&servidor.direccion).map_err(|e| error_para_ui(&e, None, None))?;
@@ -90,7 +96,32 @@ impl EstadoApp {
             config.servidor = Some(servidor.direccion.clone());
             config.equipo_servidor = Some(servidor.equipo.clone());
         });
+        self.notificador_copia.notify_one();
         Ok(())
+    }
+
+    /// Obtiene el cliente de la API si ya está conectado.
+    pub fn obtener_cliente(&self) -> Option<ClienteApi> {
+        self.cliente
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    /// Carpeta donde este equipo almacena sus copias de respaldo (RF-18, ADR-021).
+    pub fn carpeta_copias(&self) -> PathBuf {
+        let dir = self.ruta_config.parent().unwrap_or(Path::new("."));
+        crate::copia_diaria::carpeta_copias(dir)
+    }
+
+    /// Notificador para despertar la tarea de respaldo al conectar.
+    pub fn notificador_copia(&self) -> Arc<tokio::sync::Notify> {
+        self.notificador_copia.clone()
+    }
+
+    /// Bandera atómica que evita descargas simultáneas.
+    pub fn en_descarga(&self) -> Arc<AtomicBool> {
+        self.en_descarga.clone()
     }
 
     /// Traduce un error de red usando el nombre del servidor conocido.
@@ -151,6 +182,12 @@ pub fn modo_equipo(estado: State<'_, EstadoApp>) -> Option<ModoEquipo> {
 #[tauri::command]
 pub fn elegir_modo(estado: State<'_, EstadoApp>, modo: ModoEquipo) -> Resultado<()> {
     estado.fijar_modo(modo)
+}
+
+/// Consulta el estado de las copias locales de respaldo (RF-18, ADR-021).
+#[tauri::command]
+pub fn estado_copias(estado: State<'_, EstadoApp>) -> crate::copia_diaria::EstadoCopias {
+    crate::copia_diaria::estado_copias(&estado.carpeta_copias())
 }
 
 /// Descubre el servidor: guardada → localhost → broadcast (RF-09, RNF-08).

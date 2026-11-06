@@ -119,3 +119,9 @@ export type EstadoConexion =
   | { tipo: "conectado"; equipo: string }
   | { tipo: "buscando" }
   | { tipo: "sin_conexion"; mensaje: string };
+
+/** Estado de las copias locales de respaldo en este equipo (RF-18, ADR-021). */
+export interface EstadoCopias {
+  ultima: string | null;
+  cantidad: number;
+}
