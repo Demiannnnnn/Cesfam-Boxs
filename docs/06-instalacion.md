@@ -2,9 +2,22 @@
 
 Guía para TI o para quien deba instalar o reinstalar el sistema. No requiere saber programar.
 
+## Obtener los instaladores
+
+Los instaladores de la aplicación se generan de forma reproducible a través de GitHub Actions:
+
+1. El responsable del proyecto abre el repositorio en GitHub y va a la pestaña **Actions**.
+2. En la barra lateral izquierda, selecciona el workflow **Instalador Windows**.
+3. Hace clic en el botón **Run workflow** sobre la rama deseada (`main` o `develop`) y confirma la ejecución.
+4. Al completarse la tarea, descarga el artefacto **`instalador-windows`** (archivo comprimido `.zip` que contiene los instaladores `.msi` y `-setup.exe`).
+5. **¿Cuál instalador usar?**
+   - **`Gestion de Boxes_x.y.z_x64-setup.exe`** (NSIS): Es el instalador más simple y directo, recomendado para la instalación manual en los computadores del CESFAM.
+   - **`Gestion de Boxes_x.y.z_x64.msi`** (WiX): Indicado si TI realiza una instalación administrada o automatizada mediante políticas de grupo (GPO).
+6. Durante la construcción, el workflow descarga automáticamente la versión de NSSM auditada y comprueba su integridad mediante la suma SHA-256 (`99f5045fffbffb745d67fe3a065a953c4a3d9c253b868892d9b685b0ee7d07b8`), garantizando que los archivos del servidor empaquetados dentro de la app sean íntegros.
+
 ## Qué se instala dónde
 
-En todos los computadores se instala el mismo instalador de la aplicación (`Gestion de Boxes_x.y.z_x64.msi`). Al abrirla por primera vez, el asistente configura el modo del equipo ([ADR-020](../.ai-context/decisiones.md#adr-020--2026-11-06--aceptada--tres-modos-de-equipo-elegidos-al-instalar)):
+En todos los computadores se instala el mismo instalador de la aplicación (`Gestion de Boxes_x.y.z_x64-setup.exe` o `Gestion de Boxes_x.y.z_x64.msi`). Al abrirla por primera vez, el asistente configura el modo del equipo ([ADR-020](../.ai-context/decisiones.md#adr-020--2026-11-06--aceptada--tres-modos-de-equipo-elegidos-al-instalar)):
 
 | PC | Qué instalar | Modo a elegir en el asistente | Función |
 |---|---|---|---|
@@ -201,5 +214,6 @@ Resultados:
 
 - `target\release\gestion-box-api.exe`
 - `target\release\bundle\msi\*.msi`
+- `target\release\bundle\nsis\*-setup.exe`
 
 `nssm.exe` (compilación 2.24-101-g897c7ad o posterior de 64 bits, no la versión 2.24 estable; consultar detalles de descarga y suma SHA-1 en `instalador/README.md`) se copia a `instalador\` antes de empaquetar la carpeta `servidor\`.
