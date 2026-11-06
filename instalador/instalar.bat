@@ -10,7 +10,9 @@ if errorlevel 1 goto error_ruta_unc
 net session >nul 2>&1
 if errorlevel 1 goto error_permisos_admin
 
-:: Parseo de argumentos de linea de comandos
+:: Parseo de argumentos de línea de comandos
+:: Se usa shift /1 para desplazar desde %1 y dejar %0 intacto,
+:: preservando %~dp0 (la ruta del script) tras procesar las opciones.
 set "SIN_PAUSA=0"
 set "RUTA_RESPALDO="
 
@@ -22,14 +24,14 @@ goto error_argumento_desconocido
 
 :arg_sinpausa
 set "SIN_PAUSA=1"
-shift
+shift /1
 goto bucle_argumentos
 
 :arg_respaldo
 if "%~2"=="" goto error_falta_ruta_respaldo
 set "RUTA_RESPALDO=%~2"
-shift
-shift
+shift /1
+shift /1
 goto bucle_argumentos
 
 :fin_argumentos
@@ -39,7 +41,7 @@ if "%RUTA_RESPALDO%"=="" goto respaldo_validado
 if not exist "%RUTA_RESPALDO%" goto error_respaldo_no_existe
 :respaldo_validado
 
-:: Carpeta de datos compartida con la configuracion de la API
+:: Carpeta de datos compartida con la configuración de la API
 set "DESTINO=%ProgramData%\GestionBox"
 
 :: Comprobar presencia de ejecutables requeridos
@@ -140,23 +142,23 @@ if errorlevel 1 goto error_firewall_http
 netsh advfirewall firewall add rule name="GestionBox UDP" dir=in action=allow protocol=UDP localport=8001 profile=private,domain >nul 2>&1
 if errorlevel 1 goto error_firewall_udp
 
-:: Ajustar energia para evitar suspension e hibernacion con corriente (RNF-14)
-:: Si falla es advertencia: el servidor funciona igual, solo hay que ajustar la energia a mano
-echo Configurando energia para evitar suspension...
+:: Ajustar energía para evitar suspensión e hibernación con corriente (RNF-14)
+:: Si falla es advertencia: el servidor funciona igual, solo hay que ajustar la energía a mano
+echo Configurando energía para evitar suspensión...
 powercfg /change standby-timeout-ac 0 >nul 2>&1
-if errorlevel 1 echo Advertencia: No se pudo desactivar la suspension automatica en corriente alterna
+if errorlevel 1 echo Advertencia: No se pudo desactivar la suspensión automática en corriente alterna
 powercfg /change hibernate-timeout-ac 0 >nul 2>&1
-if errorlevel 1 echo Advertencia: No se pudo desactivar la hibernacion automatica en corriente alterna
+if errorlevel 1 echo Advertencia: No se pudo desactivar la hibernación automática en corriente alterna
 
-:: Advertencia de perfil de red publica
+:: Advertencia de perfil de red pública
 powershell -NoProfile -Command "try { if (Get-NetConnectionProfile | Where-Object NetworkCategory -eq 'Public') { exit 1 } else { exit 0 } } catch { exit 0 }" >nul 2>&1
 if errorlevel 1 goto advertencia_red_publica
 goto red_verificada
 
 :advertencia_red_publica
-echo Advertencia: Se detecto una conexion de red configurada como Publica
-echo Los demas computadores no podran conectarse a este servidor
-echo Cambialo en Configuracion, Red e Internet, propiedades de la conexion, Perfil de red: Privada
+echo Advertencia: Se detectó una conexión de red configurada como Pública
+echo Los demás computadores no podrán conectarse a este servidor
+echo Cámbialo en Configuración, Red e Internet, propiedades de la conexión, Perfil de red: Privada
 
 :red_verificada
 :: Restaurar respaldo si fue solicitado y no existe la base
@@ -169,7 +171,7 @@ echo Respaldo copiado exitosamente
 goto fin_restaurar_respaldo
 
 :aviso_base_existente
-echo Advertencia: Ya existe una base de datos en %DESTINO%. Se conservo la base actual
+echo Advertencia: Ya existe una base de datos en %DESTINO%. Se conservó la base actual
 goto fin_restaurar_respaldo
 
 :fin_restaurar_respaldo
@@ -197,14 +199,14 @@ if not exist "%~dp0cargar-boxes.ps1" goto aviso_falta_ps1
 
 echo Cargando boxes iniciales desde boxes-iniciales.txt...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cargar-boxes.ps1" -Archivo "%~dp0boxes-iniciales.txt"
-if errorlevel 1 echo Advertencia: Ocurrio un problema al cargar los boxes iniciales
+if errorlevel 1 echo Advertencia: Ocurrió un problema al cargar los boxes iniciales
 goto fin_carga_boxes
 
 :aviso_falta_ps1
-echo Advertencia: Se encontro boxes-iniciales.txt pero no existe cargar-boxes.ps1
+echo Advertencia: Se encontró boxes-iniciales.txt pero no existe cargar-boxes.ps1
 
 :fin_carga_boxes
-echo Instalacion completada
+echo Instalación completada
 call :pausa
 exit /b 0
 
@@ -221,7 +223,7 @@ if errorlevel 1 goto fallo_ajuste_nssm
 exit /b 0
 
 :fallo_ajuste_nssm
-echo Error al configurar el parametro %1 en NSSM
+echo Error al configurar el parámetro %1 en NSSM
 exit /b 1
 
 :error_ruta_unc
@@ -237,12 +239,12 @@ call :pausa
 exit /b 1
 
 :error_argumento_desconocido
-echo Error: Parametro desconocido %1
+echo Error: Parámetro desconocido %1
 call :pausa
 exit /b 1
 
 :error_falta_ruta_respaldo
-echo Error: Falta la ruta del archivo tras el parametro /respaldo
+echo Error: Falta la ruta del archivo tras el parámetro /respaldo
 call :pausa
 exit /b 1
 
@@ -273,25 +275,25 @@ exit /b 1
 
 :error_instalacion_servicio
 echo Error: No se pudo registrar el servicio GestionBoxAPI con NSSM
-echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualizacion, el servicio quedo detenido hasta entonces.
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 call :pausa
 exit /b 1
 
 :error_ajustar_nssm
-echo Error: Fallo la configuracion de los parametros de NSSM
-echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualizacion, el servicio quedo detenido hasta entonces.
+echo Error: Falló la configuración de los parámetros de NSSM
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 call :pausa
 exit /b 1
 
 :error_firewall_http
 echo Error: No se pudo crear la regla de firewall para el puerto 8000 TCP
-echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualizacion, el servicio quedo detenido hasta entonces.
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 call :pausa
 exit /b 1
 
 :error_firewall_udp
 echo Error: No se pudo crear la regla de firewall para el puerto 8001 UDP
-echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualizacion, el servicio quedo detenido hasta entonces.
+echo Corrige el problema y vuelve a ejecutar instalar.bat. Si era una actualización, el servicio quedó detenido hasta entonces.
 call :pausa
 exit /b 1
 
@@ -300,6 +302,6 @@ echo Error: El servicio no responde en http://localhost:8000/health tras varios 
 echo Revisa el archivo api.log en %DESTINO%
 echo Revisa el archivo servicio.log en %DESTINO%
 echo Revisa el estado del servicio en services.msc
-echo Comprueba que ningun otro programa este usando el puerto 8000
+echo Comprueba que ningún otro programa esté usando el puerto 8000
 call :pausa
 exit /b 1
