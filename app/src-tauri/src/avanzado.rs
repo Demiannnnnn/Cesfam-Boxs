@@ -18,6 +18,10 @@ use crate::errores::ErrorUi;
 /// cambios accidentales o por curiosidad de parte de los usuarios.
 pub const CLAVE_AVANZADA: &str = "sum41rules";
 
+/// Mensaje de error exacto cuando el equipo no está en modo de trabajo para reservar (RF-19, ADR-022).
+pub const MENSAJE_MODO_NO_ESCRITURA: &str =
+    "Solo un equipo de trabajo para reservar puede convertirse en servidor.";
+
 /// Mensaje de error exacto cuando no se encuentran copias locales de respaldo (RF-19, ADR-022).
 pub const MENSAJE_SIN_COPIAS: &str = "No hay copias de los datos en este equipo";
 
@@ -75,17 +79,17 @@ pub async fn buscar_servidor_vivo(
     broadcast.intentar().await
 }
 
-/// Valida los requisitos locales para la promoción a servidor: modo escritura y existencia de copias (RF-19, ADR-022).
-pub fn validar_requisitos_promocion(
-    modo: Option<ModoEquipo>,
-    carpeta_copias: &Path,
-) -> Result<PathBuf, ErrorUi> {
+/// Valida que el modo del equipo sea `Escritura` para permitir su promoción a servidor (RF-19, ADR-022).
+pub fn validar_modo_promocion(modo: Option<ModoEquipo>) -> Result<(), ErrorUi> {
     if modo != Some(ModoEquipo::Escritura) {
-        return Err(ErrorUi::datos_invalidos(
-            "Solo un equipo de trabajo para reservar puede convertirse en servidor.",
-        ));
+        return Err(ErrorUi::datos_invalidos(MENSAJE_MODO_NO_ESCRITURA));
     }
-    crate::copia_diaria::copia_mas_reciente(carpeta_copias)
+    Ok(())
+}
+
+/// Obtiene la ruta de la copia de respaldo más reciente para promover el equipo a servidor (RF-19, ADR-022).
+pub fn copia_para_promover(carpeta: &Path) -> Result<PathBuf, ErrorUi> {
+    crate::copia_diaria::copia_mas_reciente(carpeta)
         .ok_or_else(|| ErrorUi::new("sin_copias", MENSAJE_SIN_COPIAS))
 }
 
@@ -102,11 +106,7 @@ pub async fn promover_a_servidor(app: tauri::AppHandle) -> Result<(), ErrorUi> {
     let config = estado.config();
 
     // 1. El modo actual debe ser Escritura.
-    if config.modo != Some(ModoEquipo::Escritura) {
-        return Err(ErrorUi::datos_invalidos(
-            "Solo un equipo de trabajo para reservar puede convertirse en servidor.",
-        ));
-    }
+    validar_modo_promocion(config.modo)?;
 
     // 2. Buscar servidor durante unos 3 s con Broadcast y confirmar guardada.
     let broadcast = Broadcast::default();
@@ -119,8 +119,7 @@ pub async fn promover_a_servidor(app: tauri::AppHandle) -> Result<(), ErrorUi> {
 
     // 3. Comprobar copia local de respaldo.
     let carpeta_copias = estado.carpeta_copias();
-    let ruta_copia = crate::copia_diaria::copia_mas_reciente(&carpeta_copias)
-        .ok_or_else(|| ErrorUi::new("sin_copias", MENSAJE_SIN_COPIAS))?;
+    let ruta_copia = copia_para_promover(&carpeta_copias)?;
 
     // 4. Invocar la lógica de instalación del servicio con la copia de datos.
     let ruta_copia_str = ruta_copia.to_string_lossy().to_string();
@@ -180,22 +179,31 @@ mod tests {
     }
 
     #[test]
-    fn validar_requisitos_promocion_rechaza_no_escritura_y_sin_copias() {
+    fn validar_modo_promocion_solo_acepta_escritura() {
+        // Modo None
+        let err = validar_modo_promocion(None).unwrap_err();
+        assert_eq!(err.mensaje, MENSAJE_MODO_NO_ESCRITURA);
+        assert_eq!(err.codigo, "datos_invalidos");
+
+        // Modo Lectura
+        let err = validar_modo_promocion(Some(ModoEquipo::Lectura)).unwrap_err();
+        assert_eq!(err.mensaje, MENSAJE_MODO_NO_ESCRITURA);
+
+        // Modo Servidor
+        let err = validar_modo_promocion(Some(ModoEquipo::Servidor)).unwrap_err();
+        assert_eq!(err.mensaje, MENSAJE_MODO_NO_ESCRITURA);
+
+        // Modo Escritura
+        assert!(validar_modo_promocion(Some(ModoEquipo::Escritura)).is_ok());
+    }
+
+    #[test]
+    fn copia_para_promover_requiere_copia_existente() {
         let dir_temp = tempfile::tempdir().unwrap();
         let ruta_carpeta = dir_temp.path();
 
-        // Modo None
-        assert!(validar_requisitos_promocion(None, ruta_carpeta).is_err());
-
-        // Modo Lectura
-        assert!(validar_requisitos_promocion(Some(ModoEquipo::Lectura), ruta_carpeta).is_err());
-
-        // Modo Servidor
-        assert!(validar_requisitos_promocion(Some(ModoEquipo::Servidor), ruta_carpeta).is_err());
-
-        // Modo Escritura pero carpeta vacía -> mensaje exacto sin copias
-        let err =
-            validar_requisitos_promocion(Some(ModoEquipo::Escritura), ruta_carpeta).unwrap_err();
+        // Carpeta vacía -> mensaje exacto sin copias
+        let err = copia_para_promover(ruta_carpeta).unwrap_err();
         assert_eq!(err.mensaje, MENSAJE_SIN_COPIAS);
         assert_eq!(err.codigo, "sin_copias");
 
@@ -203,7 +211,7 @@ mod tests {
         let copia = ruta_carpeta.join("gestion-box-20261106-120000.db");
         std::fs::write(&copia, b"SQLite format 3\0").unwrap();
 
-        let res = validar_requisitos_promocion(Some(ModoEquipo::Escritura), ruta_carpeta);
+        let res = copia_para_promover(ruta_carpeta);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), copia);
     }
@@ -318,9 +326,10 @@ mod tests {
         assert_eq!(servidor, None);
 
         // Sin copias en la carpeta
-        let res = validar_requisitos_promocion(Some(ModoEquipo::Escritura), carpeta_copias);
+        let res = copia_para_promover(carpeta_copias);
         assert!(res.is_err());
         let err = res.unwrap_err();
-        assert_eq!(err.mensaje, "No hay copias de los datos en este equipo");
+        assert_eq!(err.mensaje, MENSAJE_SIN_COPIAS);
+        assert_eq!(err.codigo, "sin_copias");
     }
 }
