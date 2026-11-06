@@ -22,3 +22,7 @@ Al preparar el paquete para el servidor, se debe reunir en una carpeta `servidor
 1. Copiar la carpeta completa `servidor\` al escritorio del equipo designado como servidor.
 2. Hacer clic derecho sobre `instalar.bat` y seleccionar **Ejecutar como administrador**.
 3. El script configurará el servicio en `C:\ProgramData\GestionBox`, abrirá los puertos en el firewall de Windows y verificará el estado en `http://localhost:8000/health`.
+
+## Integración con el instalador de la app
+
+Para que la app de escritorio pueda instalar el servidor automáticamente desde su asistente (T-8.2), los archivos `gestion-box-api.exe`, `nssm.exe`, `instalar.bat` y `desinstalar.bat` deben copiarse a `app/src-tauri/servidor/` antes de ejecutar `npm run tauri build`.

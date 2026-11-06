@@ -29,6 +29,9 @@
   "bundle": {
     "active": true,
     "targets": ["msi"],
+    "resources": [
+      "servidor/*"
+    ],
     "category": "Productivity",
     "shortDescription": "Reserva de boxes de atención del CESFAM",
     "icon": [
