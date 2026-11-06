@@ -4,12 +4,14 @@
 //! de la base del servidor a través de `GET /respaldo` y conserva las últimas
 //! [`COPIAS_A_CONSERVAR`] copias en disco local.
 
+pub mod tarea;
+
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
-use std::time::Duration;
 
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+
+pub use tarea::{realizar_intento_copia, tarea_copia_diaria};
 
 use crate::config_local::ModoEquipo;
 
@@ -153,7 +155,12 @@ pub fn guardar_copia(
     Ok(ruta_final)
 }
 
-/// Lista los archivos de respaldo válidos en `carpeta` (que inicien con `gestion-box-` y terminen en `.db`).
+/// Lista los archivos de respaldo válidos en `carpeta`.
+///
+/// Retorna tuplas `(clave, ruta)` donde `clave` es el nombre sin el prefijo `gestion-box-`
+/// ni la extensión `.db`. Al ordenar por esta clave se asegura el orden cronológico
+/// estricto (por ejemplo, `...-120000-2` queda después de `...-120000`, a diferencia de
+/// ordenar con la extensión `.db` donde `'-' < '.'`).
 fn listar_archivos_copia(carpeta: &Path) -> std::io::Result<Vec<(String, PathBuf)>> {
     let mut copias = Vec::new();
     if !carpeta.exists() {
@@ -164,11 +171,16 @@ fn listar_archivos_copia(carpeta: &Path) -> std::io::Result<Vec<(String, PathBuf
         if !entrada.file_type()?.is_file() {
             continue;
         }
-        let nombre = entrada.file_name().to_string_lossy().to_string();
-        if !nombre.starts_with(PREFIJO) || !nombre.ends_with(EXTENSION) {
+        let Some(nombre) = entrada.file_name().to_str().map(|s| s.to_owned()) else {
             continue;
-        }
-        copias.push((nombre, entrada.path()));
+        };
+        let Some(sin_prefijo) = nombre.strip_prefix(PREFIJO) else {
+            continue;
+        };
+        let Some(clave) = sin_prefijo.strip_suffix(EXTENSION) else {
+            continue;
+        };
+        copias.push((clave.to_owned(), entrada.path()));
     }
     Ok(copias)
 }
@@ -219,7 +231,15 @@ pub fn copia_mas_reciente(carpeta: &Path) -> Option<PathBuf> {
 
 /// Devuelve el estado actual de las copias en `carpeta` (RF-18, ADR-021).
 pub fn estado_copias(carpeta: &Path) -> EstadoCopias {
-    let mut copias = listar_archivos_copia(carpeta).unwrap_or_default();
+    let mut copias = match listar_archivos_copia(carpeta) {
+        Ok(c) => c,
+        Err(_) => {
+            return EstadoCopias {
+                ultima: None,
+                cantidad: 0,
+            };
+        }
+    };
     if copias.is_empty() {
         return EstadoCopias {
             ultima: None,
@@ -228,92 +248,12 @@ pub fn estado_copias(carpeta: &Path) -> EstadoCopias {
     }
     copias.sort();
     let cantidad = copias.len();
-    let ultima_ruta = &copias.last().unwrap().1;
-    let ultima = extraer_fecha_de_nombre(ultima_ruta);
+    let ultima = match copias.last() {
+        Some((_, ruta)) => extraer_fecha_de_nombre(ruta),
+        None => None,
+    };
 
     EstadoCopias { ultima, cantidad }
-}
-
-/// Guardia para asegurar que la bandera de descarga activa vuelva a `false` al terminar.
-struct DescargaGuard<'a>(&'a std::sync::atomic::AtomicBool);
-
-impl<'a> Drop for DescargaGuard<'a> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::SeqCst);
-    }
-}
-
-/// Realiza un intento de descarga y guardado de la copia diaria si corresponde (RF-18, ADR-021).
-pub async fn realizar_intento_copia(
-    estado: &crate::comandos::EstadoApp,
-    cliente: &crate::cliente_api::ClienteApi,
-) {
-    let config = estado.config();
-    let ahora = chrono::Local::now().naive_local();
-    let ultima = config
-        .ultima_copia
-        .as_deref()
-        .and_then(|s| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").ok());
-
-    if !debe_copiar(config.modo, ultima, ahora) {
-        return;
-    }
-
-    let en_descarga = estado.en_descarga();
-    if en_descarga
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
-        return;
-    }
-    let _guard = DescargaGuard(&en_descarga);
-
-    match cliente.descargar_respaldo().await {
-        Ok(bytes) => {
-            let carpeta = estado.carpeta_copias();
-            match guardar_copia(&carpeta, &bytes, ahora) {
-                Ok(_ruta) => {
-                    let ahora_str = ahora.format("%Y-%m-%dT%H:%M:%S").to_string();
-                    estado.modificar_config(|c| {
-                        c.ultima_copia = Some(ahora_str);
-                    });
-                    if let Err(error) = rotar(&carpeta, COPIAS_A_CONSERVAR) {
-                        eprintln!("[gestion-box] error al rotar copias de respaldo: {error}");
-                    }
-                }
-                Err(error) => {
-                    eprintln!("[gestion-box] error al guardar copia de respaldo: {error}");
-                }
-            }
-        }
-        Err(error) => {
-            eprintln!("[gestion-box] error al descargar copia de respaldo del servidor: {error}");
-        }
-    }
-}
-
-/// Tarea en segundo plano para la copia periódica del servidor (RF-18, ADR-021).
-///
-/// Bucle infinito que espera la conexión con el servidor. Al conectar o cada 1 hora,
-/// evalúa si corresponde respaldar y ejecuta la copia.
-pub async fn tarea_copia_diaria(estado: crate::comandos::EstadoApp) {
-    let notificador = estado.notificador_copia();
-    loop {
-        let cliente = match estado.obtener_cliente() {
-            Some(c) => c,
-            None => {
-                notificador.notified().await;
-                continue;
-            }
-        };
-
-        realizar_intento_copia(&estado, &cliente).await;
-
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(3600)) => {}
-            _ = notificador.notified() => {}
-        }
-    }
 }
 
 #[cfg(test)]
@@ -360,6 +300,41 @@ mod tests {
         // El archivo ajeno y el .tmp deben respetarse
         assert!(carpeta.join("otro-archivo.txt").exists());
         assert!(carpeta.join("gestion-box-20261110-100000.db.tmp").exists());
+    }
+
+    #[test]
+    fn orden_cronologico_con_sufijos_prefiere_archivo_con_guion() {
+        let temp = tempfile::tempdir().unwrap();
+        let carpeta = temp.path();
+
+        let nombre_base = "gestion-box-20261106-120000.db";
+        let nombre_sufijo = "gestion-box-20261106-120000-2.db";
+
+        let ruta_base = carpeta.join(nombre_base);
+        let ruta_sufijo = carpeta.join(nombre_sufijo);
+
+        std::fs::write(&ruta_base, CABECERA_SQLITE).unwrap();
+        std::fs::write(&ruta_sufijo, CABECERA_SQLITE).unwrap();
+
+        // La copia más reciente debe ser la que tiene el sufijo -2 (creada después)
+        assert_eq!(copia_mas_reciente(carpeta), Some(ruta_sufijo.clone()));
+
+        // Rotar conservando 1 debe borrar la base antigua y dejar la -2
+        let borrados = rotar(carpeta, 1).unwrap();
+        assert_eq!(borrados, 1);
+        assert!(
+            !ruta_base.exists(),
+            "la copia base antigua debió ser eliminada"
+        );
+        assert!(
+            ruta_sufijo.exists(),
+            "la copia con sufijo -2 debe conservarse"
+        );
+
+        // El estado de copias debe reflejar la única copia restante (-2)
+        let estado = estado_copias(carpeta);
+        assert_eq!(estado.cantidad, 1);
+        assert_eq!(estado.ultima.as_deref(), Some("2026-11-06T12:00:00"));
     }
 
     #[test]
@@ -540,94 +515,5 @@ mod tests {
                 .join("GestionBox")
                 .join("copias-del-servidor")
         );
-    }
-
-    #[tokio::test]
-    #[ignore = "levanta la API real para validar la descarga de respaldo (V2)"]
-    async fn descargar_y_guardar_respaldo_desde_api_real() {
-        struct ProcesoGuard(std::process::Child);
-        impl Drop for ProcesoGuard {
-            fn drop(&mut self) {
-                let _ = self.0.kill();
-                let _ = self.0.wait();
-            }
-        }
-
-        let temp_api = tempfile::tempdir().unwrap();
-        let temp_copias = tempfile::tempdir().unwrap();
-
-        // Reservar puertos libres
-        let (puerto_http, puerto_udp) = {
-            let l1 = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-            let p1 = l1.local_addr().unwrap().port();
-            let l2 = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
-            let p2 = l2.local_addr().unwrap().port();
-            (p1, p2)
-        };
-
-        let ruta_binario =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/debug/gestion-box-api");
-
-        let mut comando = if ruta_binario.exists() {
-            std::process::Command::new(ruta_binario)
-        } else {
-            let mut c = std::process::Command::new("cargo");
-            c.args(["run", "-p", "gestion-box-api"]);
-            c
-        };
-
-        comando
-            .env("GESTIONBOX_DATA_DIR", temp_api.path())
-            .env("GESTIONBOX_HTTP_PORT", puerto_http.to_string())
-            .env("GESTIONBOX_UDP_PORT", puerto_udp.to_string())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
-
-        let mut child = ProcesoGuard(
-            comando
-                .spawn()
-                .expect("no se pudo iniciar el proceso de la API"),
-        );
-
-        // Esperar a que la API responda en /health
-        let direccion = format!("127.0.0.1:{puerto_http}");
-        let cliente = crate::cliente_api::ClienteApi::new(&direccion).unwrap();
-        let mut lista = false;
-        for _ in 0..50 {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            if cliente.salud().await.is_ok() {
-                lista = true;
-                break;
-            }
-        }
-        assert!(lista, "la API no respondió a tiempo en /health");
-
-        // Descargar el respaldo consistente
-        let bytes = cliente
-            .descargar_respaldo()
-            .await
-            .expect("falló la descarga del respaldo");
-        assert!(!bytes.is_empty(), "los bytes descargados están vacíos");
-        assert!(
-            bytes.starts_with(CABECERA_SQLITE),
-            "los bytes no tienen cabecera SQLite válida"
-        );
-
-        // Guardar la copia en la carpeta temporal
-        let ahora = fecha("2026-11-06T15:30:00");
-        let ruta_copia = guardar_copia(temp_copias.path(), &bytes, ahora)
-            .expect("falló al guardar la copia descargada");
-        assert!(ruta_copia.exists(), "el archivo de copia no existe");
-
-        let estado = estado_copias(temp_copias.path());
-        assert_eq!(estado.cantidad, 1);
-        assert_eq!(estado.ultima.as_deref(), Some("2026-11-06T15:30:00"));
-
-        let mas_reciente = copia_mas_reciente(temp_copias.path());
-        assert_eq!(mas_reciente, Some(ruta_copia));
-
-        // Terminar el proceso explícitamente
-        let _ = child.0.kill();
-        let _ = child.0.wait();
     }
 }
