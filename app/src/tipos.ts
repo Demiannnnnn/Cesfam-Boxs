@@ -88,6 +88,9 @@ export interface FiltroBoxesLibres {
   etiqueta_id: number | null;
 }
 
+/** Modo de operación del equipo en la red (RF-16, RF-17, ADR-020). */
+export type ModoEquipo = "servidor" | "escritura" | "lectura";
+
 export interface Horario {
   hora_inicio: number;
   minutos_por_bloque: number;

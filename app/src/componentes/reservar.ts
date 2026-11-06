@@ -13,6 +13,7 @@ import {
   etiquetaDeFuncionario,
   etiquetaFinBloque,
   funcionariosActivos,
+  puedeEscribir,
 } from "../estado";
 import { fechaCorta, finDeMes, sumarDias } from "../fechas";
 import { textos } from "../textos";
@@ -60,6 +61,7 @@ export function abrirReservar(
   hasta: number | null,
   acciones: AccionesReserva,
 ): void {
+  if (!puedeEscribir()) return;
   const horario = estado.horario;
   if (!horario) return;
   const dialogo = abrirDialogo(textos.reserva.titulo);

@@ -16,6 +16,7 @@ import type {
   FiltroBuscarReservas,
   Funcionario,
   Horario,
+  ModoEquipo,
   NuevoLote,
   Preferencias,
   Reserva,
@@ -49,6 +50,8 @@ async function llamar<T>(comando: string, argumentos?: Record<string, unknown>):
 export const api = {
   horario: () => llamar<Horario>("horario"),
   preferencias: () => llamar<Preferencias>("preferencias"),
+  modoEquipo: () => llamar<ModoEquipo | null>("modo_equipo"),
+  elegirModo: (modo: ModoEquipo) => llamar<void>("elegir_modo", { modo }),
   conectar: () => llamar<ResultadoConexion>("conectar"),
   conectarManual: (direccion: string) =>
     llamar<ResultadoConexion>("conectar_manual", { direccion }),

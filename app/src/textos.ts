@@ -162,6 +162,19 @@ export const textos = {
     irAlDia: (fecha: string) => `Ir al ${fecha}`,
     reservar: "Reservar",
   },
+  asistente: {
+    titulo: "¿Cómo se usará este equipo?",
+    servidorTitulo: "Este equipo es el servidor",
+    servidorDescripcion: "Guarda los datos. Debe quedar siempre encendido.",
+    servidorFaltaInstalar: "Falta instalar el servidor",
+    escrituraTitulo: "Equipo para reservar",
+    escrituraDescripcion: "Reserva y cancela. Guarda una copia diaria de los datos.",
+    lecturaTitulo: "Solo consulta",
+    lecturaDescripcion: "Ve la grilla, no puede reservar.",
+  },
+  barra: {
+    soloConsulta: "Solo consulta",
+  },
   comunes: {
     cerrar: "Cerrar",
     volver: "Volver",
