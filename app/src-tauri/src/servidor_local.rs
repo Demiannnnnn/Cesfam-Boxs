@@ -33,14 +33,7 @@ pub fn mensaje_por_codigo(codigo: i32) -> Option<String> {
 #[cfg(windows)]
 const SCRIPT_POWERSHELL: &str = r#"
 try {
-    $bat = $env:GB_BAT
-    $respaldo = $env:GB_RESPALDO
-    if ($respaldo) {
-        $argList = "/c `"`"$bat`" /sinpausa /respaldo `"$respaldo`"`""
-    } else {
-        $argList = "/c `"`"$bat`" /sinpausa`""
-    }
-    $p = Start-Process -FilePath cmd.exe -ArgumentList $argList -Verb RunAs -Wait -PassThru
+    $p = Start-Process -FilePath cmd.exe -ArgumentList $env:GB_ARGS -Verb RunAs -Wait -PassThru
     if ($p -eq $null) { exit 1 }
     exit $p.ExitCode
 } catch {
@@ -81,6 +74,7 @@ pub async fn instalar_servidor(
     }
 
     let bat_str = bat.to_string_lossy().to_string();
+    let linea_args = linea_cmd(&bat_str, respaldo.as_deref());
     let codigo = tokio::task::spawn_blocking(move || -> Result<i32, ErrorUi> {
         use std::os::windows::process::CommandExt;
         use std::process::Command;
@@ -94,10 +88,7 @@ pub async fn instalar_servidor(
             "-Command",
             SCRIPT_POWERSHELL,
         ]);
-        cmd.env("GB_BAT", &bat_str);
-        if let Some(ref r) = respaldo {
-            cmd.env("GB_RESPALDO", r);
-        }
+        cmd.env("GB_ARGS", &linea_args);
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
         let salida = cmd
