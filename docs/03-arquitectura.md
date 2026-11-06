@@ -2,8 +2,13 @@
 
 ## Vista general: 1 servidor, N clientes
 
-La API corre como servicio independiente; la app Tauri es igual en todos los PCs y en el
-servidor apunta a `localhost`.
+La API corre como servicio independiente de Windows en un único computador servidor; la app Tauri
+se instala en todos los equipos y define su comportamiento según el **modo de equipo** configurado
+en su primer inicio (`servidor`, `escritura` o `lectura`, [ADR-020](../.ai-context/decisiones.md#adr-020--2026-11-06--aceptada--tres-modos-de-equipo-elegidos-al-instalar)):
+
+- **Servidor:** Instala y levanta el servicio local de la API (`GestionBoxAPI`), alojando la base de datos SQLite y respondiendo peticiones HTTP (8000) y de descubrimiento UDP (8001). Su app apunta a `localhost:8000` y permite reservar sin descargar copia adicional.
+- **Escritura:** Equipos de trabajo para reservar y cancelar horas. Descargan periódicamente una copia consistente diaria de la base (`GET /respaldo`) conservando las últimas 7 en su propio disco ([ADR-021](../.ai-context/decisiones.md#adr-021--2026-11-06--aceptada--copia-diaria-de-la-base-en-los-equipos-de-escritura)). En caso de muerte definitiva del servidor, uno de estos equipos puede promoverse a nuevo servidor ([ADR-022](../.ai-context/decisiones.md#adr-022--2026-11-06--aceptada--promoción-a-servidor-oculta-solo-si-el-servidor-murió)).
+- **Lectura:** Puestos de solo consulta para visualizar la grilla y buscar, con los controles de creación y edición ocultos.
 
 ```
 ┌──────────────────────── PC servidor (Windows) ────────────────────────┐
@@ -23,18 +28,20 @@ servidor apunta a `localhost`.
 │  │                      └── api.log                                │  │
 │  └─────────────────────────────────────────────────────────────────┘  │
 │                                                                       │
-│  App Tauri (misma que en clientes, apunta a localhost:8000)           │
+│  App Tauri (modo servidor: apunta a localhost:8000)                   │
 └───────────────────────────────────────────────────────────────────────┘
-            ▲  HTTP (JSON)                ▲  UDP broadcast 255.255.255.255:8001
+            ▲  HTTP (JSON / respaldo)     ▲  UDP broadcast 255.255.255.255:8001
             │                             │
 ┌───────────┴─────────── PC cliente (×N) ─┴─────────────────────────────┐
-│  App Tauri                                                            │
+│  App Tauri (modo escritura o lectura)                                 │
 │  ┌────────────────────────────┐  invoke  ┌──────────────────────────┐ │
 │  │ Interfaz (HTML/CSS/TS)     │ ───────► │ Backend Rust de Tauri    │ │
-│  │ grilla, modales, textos    │ ◄─────── │ cliente HTTP, UDP,       │ │
-│  └────────────────────────────┘  JSON    │ config local, export CSV │ │
-│                                          └──────────────────────────┘ │
-│  %APPDATA%\cl.cesfam.gestionbox\cliente.json  (última dirección)     │
+│  │ grilla, modales, asistente │ ◄─────── │ cliente HTTP, UDP,       │ │
+│  │ solo consulta o escritura  │  JSON    │ copia diaria, config     │ │
+│  └────────────────────────────┘          └─────────────┬────────────┘ │
+│                                                        ▼              │
+│  C:\ProgramData\GestionBox\copias-del-servidor\ (7 copias, escritura) │
+│  %APPDATA%\cl.cesfam.gestionbox\cliente.json  (modo y dirección)     │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,7 +72,7 @@ Capas, de afuera hacia adentro:
 | Repositorio | `repositorio/` | SQL parametrizado; traduce violación de `UNIQUE` a error de dominio |
 | Base de datos | `db.rs` | Apertura, `PRAGMA`s, esquema y migraciones |
 | Descubrimiento | `descubrimiento.rs` | Listener UDP en hilo aparte |
-| Respaldo | `respaldo.rs` | Copia al arrancar y rotación a 30 |
+| Respaldo | `respaldo.rs` | Copia al arrancar y rotación a 30 (RF-11); entrega consistente `GET /respaldo` (RF-18) |
 | Log | `log.rs` | `tracing` hacia `api.log` |
 
 Acceso concurrente a SQLite: una sola `rusqlite::Connection` protegida por `Mutex` dentro de
@@ -73,10 +80,16 @@ Acceso concurrente a SQLite: una sola `rusqlite::Connection` protegida por `Mute
 
 ### `app/` — cliente Tauri 2
 
-- `app/src-tauri/` (Rust): comandos `invoke`, cliente HTTP (`reqwest`), descubrimiento UDP,
-  configuración local, exportación CSV, traducción de errores de red a mensajes en español.
-- `app/src/` (TypeScript sin framework, empaquetado con Vite): grilla, modales, estado de
-  conexión y refresco periódico.
+- `app/src-tauri/` (Rust):
+  - Comandos `invoke`, cliente HTTP (`reqwest`), descubrimiento UDP, configuración local (`cliente.json`).
+  - `servidor_local.rs`: instalación del servicio Windows con elevación UAC al elegir modo servidor (RF-16, RNF-12, RNF-14).
+  - `copia_diaria/`: tarea en segundo plano que descarga una copia diaria de la base (`GET /respaldo`) en equipos de escritura y rota dejando 7 (RF-18, ADR-021).
+  - `avanzado.rs`: cambio entre escritura y lectura y promoción de emergencia a nuevo servidor restaurando la copia local más reciente (RF-19, ADR-022).
+  - Exportación CSV y traducción de errores de red a mensajes en español.
+- `app/src/` (TypeScript sin framework, empaquetado con Vite):
+  - `asistente.ts`: pantalla de bienvenida al primer inicio para elegir el modo de uso del equipo (RF-16, RF-17, ADR-020).
+  - `avanzado.ts`: ventana de opciones avanzadas protegida por clave (RF-19, ADR-022).
+  - Grilla, vista semanal, búsqueda, modales de reserva, funcionarios y etiquetas, estado de conexión y refresco periódico.
 
 ## Decisiones
 
@@ -90,6 +103,9 @@ Acceso concurrente a SQLite: una sola `rusqlite::Connection` protegida por `Mute
 | Red en el lado Rust de Tauri | `fetch` desde la webview | UDP solo es posible en Rust; reutiliza tipos de `shared`; evita problemas de CORS/CSP |
 | SQLite embebido | PostgreSQL / servidor externo | Un ejecutable, cero instalación, respaldo = copiar un archivo |
 | NSSM | Servicio Windows nativo en Rust | Probado, reinicia ante caídas, sin código extra |
+| Tres modos de equipo al instalar ([ADR-020](../.ai-context/decisiones.md#adr-020--2026-11-06--aceptada--tres-modos-de-equipo-elegidos-al-instalar)) | Perfiles con login | Distingue servidor, escritura y lectura en la app sin requerir autenticación en la API |
+| Copia diaria en equipos de escritura ([ADR-021](../.ai-context/decisiones.md#adr-021--2026-11-06--aceptada--copia-diaria-de-la-base-en-los-equipos-de-escritura)) | Respaldo manual en red | Conserva 7 copias en discos distintos al servidor sin configuración ni intervención humana |
+| Promoción a servidor oculta ([ADR-022](../.ai-context/decisiones.md#adr-022--2026-11-06--aceptada--promoción-a-servidor-oculta-solo-si-el-servidor-murió)) | Failover automático complejo | Procedimiento de emergencia si el servidor muere, verificando antes la ausencia de servidor vivo por UDP |
 
 Más detalle y registro de decisiones nuevas en [`.ai-context/decisiones.md`](../.ai-context/decisiones.md).
 
