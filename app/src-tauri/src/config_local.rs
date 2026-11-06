@@ -31,6 +31,8 @@ pub struct ConfigLocal {
     /// Identificador del último funcionario usado al reservar desde este PC
     /// (comodidad, no identidad). Cubre RF-10 y RF-13.
     pub ultimo_funcionario_id: Option<i64>,
+    /// Fecha y hora de la última copia de respaldo descargada (RF-18, ADR-021). Formato `%Y-%m-%dT%H:%M:%S`.
+    pub ultima_copia: Option<String>,
 }
 
 impl ConfigLocal {
@@ -95,6 +97,7 @@ mod tests {
             servidor: Some("PC-SOME:8000".into()),
             equipo_servidor: Some("PC-SOME".into()),
             ultimo_funcionario_id: Some(7),
+            ultima_copia: Some("2026-11-06T12:00:00".into()),
         };
 
         config.guardar(&ruta).unwrap();
@@ -149,6 +152,31 @@ mod tests {
         assert_eq!(config.servidor.as_deref(), Some("PC-SOME:8000"));
         assert_eq!(config.equipo_servidor.as_deref(), Some("PC-SOME"));
         assert_eq!(config.ultimo_funcionario_id, Some(7));
+        assert_eq!(config.ultima_copia, None);
+    }
+
+    #[test]
+    fn cliente_json_antiguo_sin_ultima_copia_carga_none() {
+        let carpeta = tempfile::tempdir().unwrap();
+        let ruta = carpeta.path().join("cliente.json");
+        std::fs::write(
+            &ruta,
+            r#"{
+                "modo": "escritura",
+                "servidor": "PC-SOME:8000",
+                "equipo_servidor": "PC-SOME",
+                "ultimo_funcionario_id": 7
+            }"#,
+        )
+        .unwrap();
+
+        let config = ConfigLocal::cargar(&ruta);
+
+        assert_eq!(config.modo, Some(ModoEquipo::Escritura));
+        assert_eq!(config.servidor.as_deref(), Some("PC-SOME:8000"));
+        assert_eq!(config.equipo_servidor.as_deref(), Some("PC-SOME"));
+        assert_eq!(config.ultimo_funcionario_id, Some(7));
+        assert_eq!(config.ultima_copia, None);
     }
 
     #[test]

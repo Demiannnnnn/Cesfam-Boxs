@@ -11,6 +11,7 @@ import type {
   CambiosEtiqueta,
   CambiosFuncionario,
   ErrorUi,
+  EstadoCopias,
   Etiqueta,
   FiltroBoxesLibres,
   FiltroBuscarReservas,
@@ -99,4 +100,5 @@ export const api = {
     llamar<{ canceladas: number }>("cancelar_grupo", { grupo, desde }),
   exportarCsv: (desde: string, hasta: string, ruta: string) =>
     llamar<number>("exportar_csv", { desde, hasta, ruta }),
+  estadoCopias: () => llamar<EstadoCopias>("estado_copias"),
 };

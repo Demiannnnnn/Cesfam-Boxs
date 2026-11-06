@@ -5,6 +5,7 @@ pub mod cliente_api;
 pub mod comandos;
 pub mod conexion;
 pub mod config_local;
+pub mod copia_diaria;
 pub mod errores;
 pub mod exportar;
 pub mod servidor_local;
@@ -21,7 +22,13 @@ pub fn ejecutar() {
         .setup(|app| {
             let carpeta = app.path().app_config_dir()?;
             let estado = comandos::EstadoApp::cargar(carpeta.join(ARCHIVO_CONFIG));
+            let estado_tarea = estado.clone();
             app.manage(estado);
+
+            tauri::async_runtime::spawn(async move {
+                copia_diaria::tarea_copia_diaria(estado_tarea).await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -50,6 +57,7 @@ pub fn ejecutar() {
             comandos::cancelar_reserva,
             comandos::cancelar_grupo,
             comandos::exportar_csv,
+            comandos::estado_copias,
             servidor_local::instalar_servidor,
         ])
         .run(tauri::generate_context!());
