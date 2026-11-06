@@ -71,6 +71,30 @@ impl ConfigLocal {
         }
     }
 
+    /// Cambia el modo de operación exclusivamente entre Escritura y Lectura (RF-19, ADR-022).
+    ///
+    /// Un equipo servidor no puede cambiar de modo desde la app (requiere reinstalación),
+    /// ningún equipo puede cambiarse a servidor con esta función y un equipo sin modo
+    /// configurado debe pasar primero por el asistente inicial.
+    pub fn cambiar_entre_escritura_y_lectura(
+        &mut self,
+        nuevo: ModoEquipo,
+    ) -> Result<(), &'static str> {
+        match self.modo {
+            Some(ModoEquipo::Servidor) => {
+                Err("Un servidor no puede cambiar de modo desde la app; se reinstala.")
+            }
+            None => Err("El equipo aún no tiene un modo configurado."),
+            Some(ModoEquipo::Escritura) | Some(ModoEquipo::Lectura) => match nuevo {
+                ModoEquipo::Servidor => Err("No se puede cambiar a servidor desde esta opción."),
+                ModoEquipo::Escritura | ModoEquipo::Lectura => {
+                    self.modo = Some(nuevo);
+                    Ok(())
+                }
+            },
+        }
+    }
+
     /// Guarda de forma atómica: escribe un temporal y lo renombra, para no dejar
     /// un archivo a medias si se corta la luz.
     pub fn guardar(&self, ruta: &Path) -> io::Result<()> {
@@ -255,5 +279,63 @@ mod tests {
         config.modo = Some(ModoEquipo::Lectura);
         assert!(config.pasar_a_servidor().is_err());
         assert_eq!(config.modo, Some(ModoEquipo::Lectura));
+    }
+
+    #[test]
+    fn cambiar_entre_escritura_y_lectura_valida_transiciones() {
+        let mut config = ConfigLocal {
+            modo: Some(ModoEquipo::Escritura),
+            ..ConfigLocal::default()
+        };
+
+        // Escritura -> Lectura
+        assert!(config
+            .cambiar_entre_escritura_y_lectura(ModoEquipo::Lectura)
+            .is_ok());
+        assert_eq!(config.modo, Some(ModoEquipo::Lectura));
+
+        // Lectura -> Escritura
+        assert!(config
+            .cambiar_entre_escritura_y_lectura(ModoEquipo::Escritura)
+            .is_ok());
+        assert_eq!(config.modo, Some(ModoEquipo::Escritura));
+
+        // Escritura -> Servidor (rechazado)
+        assert_eq!(
+            config.cambiar_entre_escritura_y_lectura(ModoEquipo::Servidor),
+            Err("No se puede cambiar a servidor desde esta opción.")
+        );
+        assert_eq!(config.modo, Some(ModoEquipo::Escritura));
+
+        // Lectura -> Servidor (rechazado)
+        config.modo = Some(ModoEquipo::Lectura);
+        assert_eq!(
+            config.cambiar_entre_escritura_y_lectura(ModoEquipo::Servidor),
+            Err("No se puede cambiar a servidor desde esta opción.")
+        );
+        assert_eq!(config.modo, Some(ModoEquipo::Lectura));
+
+        // Servidor -> cualquiera (rechazado)
+        config.modo = Some(ModoEquipo::Servidor);
+        assert_eq!(
+            config.cambiar_entre_escritura_y_lectura(ModoEquipo::Lectura),
+            Err("Un servidor no puede cambiar de modo desde la app; se reinstala.")
+        );
+        assert_eq!(
+            config.cambiar_entre_escritura_y_lectura(ModoEquipo::Escritura),
+            Err("Un servidor no puede cambiar de modo desde la app; se reinstala.")
+        );
+        assert_eq!(config.modo, Some(ModoEquipo::Servidor));
+
+        // None -> cualquiera (rechazado)
+        config.modo = None;
+        assert_eq!(
+            config.cambiar_entre_escritura_y_lectura(ModoEquipo::Escritura),
+            Err("El equipo aún no tiene un modo configurado.")
+        );
+        assert_eq!(
+            config.cambiar_entre_escritura_y_lectura(ModoEquipo::Lectura),
+            Err("El equipo aún no tiene un modo configurado.")
+        );
     }
 }

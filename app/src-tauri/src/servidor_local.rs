@@ -41,12 +41,11 @@ try {
 }
 "#;
 
-/// Instala la API como servicio de Windows en este equipo. Cubre RF-16, RNF-12 y RNF-14.
+/// Instala la API como servicio en este equipo con o sin archivo de respaldo. Cubre RF-16, RF-19, RNF-12 y RNF-14.
 #[cfg(windows)]
-#[tauri::command]
-pub async fn instalar_servidor(
-    app: tauri::AppHandle,
-    respaldo: Option<String>,
+pub async fn instalar_servidor_logica(
+    app: &tauri::AppHandle,
+    respaldo: Option<&str>,
 ) -> Result<(), ErrorUi> {
     use std::time::Duration;
     use tauri::Manager;
@@ -74,7 +73,7 @@ pub async fn instalar_servidor(
     }
 
     let bat_str = bat.to_string_lossy().to_string();
-    let linea_args = linea_cmd(&bat_str, respaldo.as_deref());
+    let linea_args = linea_cmd(&bat_str, respaldo);
     let codigo = tokio::task::spawn_blocking(move || -> Result<i32, ErrorUi> {
         use std::os::windows::process::CommandExt;
         use std::process::Command;
@@ -131,12 +130,20 @@ pub async fn instalar_servidor(
 
 /// En sistemas distintos de Windows la instalación del servicio no está soportada (RNF-12).
 #[cfg(not(windows))]
-#[tauri::command]
-pub async fn instalar_servidor(
-    _app: tauri::AppHandle,
-    _respaldo: Option<String>,
+pub async fn instalar_servidor_logica(
+    _app: &tauri::AppHandle,
+    _respaldo: Option<&str>,
 ) -> Result<(), ErrorUi> {
     Err(ErrorUi::new("no_soportado", "Solo disponible en Windows."))
+}
+
+/// Instala la API como servicio de Windows en este equipo. Cubre RF-16, RNF-12 y RNF-14.
+#[tauri::command]
+pub async fn instalar_servidor(
+    app: tauri::AppHandle,
+    respaldo: Option<String>,
+) -> Result<(), ErrorUi> {
+    instalar_servidor_logica(&app, respaldo.as_deref()).await
 }
 
 #[cfg(test)]
