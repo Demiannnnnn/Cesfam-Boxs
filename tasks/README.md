@@ -120,5 +120,5 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 | [T-8.3](fase-8/T-8.3-api-respaldo.md) | API: entregar una copia consistente de la base | RF-18 | fase 7 | completada |
 | [T-8.4](fase-8/T-8.4-copia-diaria.md) | Copia diaria en los equipos de escritura | RF-18 | T-8.1, T-8.3 | implementada — validación manual pendiente |
 | [T-8.5](fase-8/T-8.5-servidor-de-reemplazo.md) | Opción oculta: servidor de reemplazo y cambio de modo | RF-19 | T-8.2, T-8.4 | implementada — validación manual pendiente |
-| [T-8.6](fase-8/T-8.6-documentacion-fase-8.md) | Documentación de la fase 8 | RF-16 a RF-19 | T-8.1 a T-8.5 | pendiente |
+| [T-8.6](fase-8/T-8.6-documentacion-fase-8.md) | Documentación de la fase 8 | RF-16 a RF-19 | T-8.1 a T-8.5 | completada |
 | [T-8.7](fase-8/T-8.7-instalador-ci.md) | Construir el instalador en GitHub Actions | RNF-12, RNF-13 | T-8.2, T-8.6 | pendiente |
