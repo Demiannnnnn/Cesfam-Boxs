@@ -21,6 +21,10 @@ La app cubre ver, reservar y cancelar en una sola pantalla; la API es la única 
 | RF-13 | Registrar funcionarios (agregar, renombrar, asignar etiqueta, desactivar); las reservas se asignan solo a funcionarios registrados y activos | App + API | T-7.1, T-7.2 |
 | RF-14 | Definir etiquetas con nombre y color y asignarlas a boxes y funcionarios; la grilla muestra esos colores | App + API | T-7.1, T-7.2 |
 | RF-15 | Buscar reservas (por funcionario, etiqueta o box en un rango de fechas) y boxes libres (por día, rango horario y etiqueta) | App + API | T-7.3 |
+| RF-16 | Al primer inicio, un asistente pide el modo del equipo (servidor, escritura o solo lectura) y lo guarda; el modo servidor instala la API | App + instalador | T-8.1, T-8.2 |
+| RF-17 | En modo solo lectura la app no muestra acciones que modifiquen datos | App | T-8.1 |
+| RF-18 | Los equipos de escritura guardan cada día una copia de la base del servidor, conservando las últimas 7 | App + API | T-8.3, T-8.4 |
+| RF-19 | Una opción oculta con clave convierte un equipo de escritura en servidor usando su última copia, solo si no responde otro servidor | App | T-8.5 |
 
 **Bloques horarios:** 30 minutos entre 08:00 y 20:00 → 24 bloques. El bloque `0` es
 08:00–08:30 y el bloque `23` es 19:30–20:00. *Pendiente de confirmar con el CESFAM (T-0.1).*
@@ -44,6 +48,7 @@ El criterio central es que el sistema funcione sin nadie que lo mantenga despué
 | RNF-11 | La interfaz se usa sin capacitación: textos en español, una pantalla, acciones de un clic | T-3.3 – T-3.6 |
 | RNF-12 | La instalación del servidor es un solo `instalar.bat` ejecutado como administrador | T-4.2 |
 | RNF-13 | Compatible con Windows 10 y 11 | T-0.7, T-4.4 |
+| RNF-14 | El PC servidor no se suspende ni hiberna mientras está enchufado | T-8.2 |
 
 ## Trazabilidad
 

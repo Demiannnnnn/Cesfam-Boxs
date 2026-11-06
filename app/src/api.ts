@@ -11,11 +11,13 @@ import type {
   CambiosEtiqueta,
   CambiosFuncionario,
   ErrorUi,
+  EstadoCopias,
   Etiqueta,
   FiltroBoxesLibres,
   FiltroBuscarReservas,
   Funcionario,
   Horario,
+  ModoEquipo,
   NuevoLote,
   Preferencias,
   Reserva,
@@ -49,6 +51,10 @@ async function llamar<T>(comando: string, argumentos?: Record<string, unknown>):
 export const api = {
   horario: () => llamar<Horario>("horario"),
   preferencias: () => llamar<Preferencias>("preferencias"),
+  modoEquipo: () => llamar<ModoEquipo | null>("modo_equipo"),
+  elegirModo: (modo: ModoEquipo) => llamar<void>("elegir_modo", { modo }),
+  instalarServidor: (respaldo: string | null = null) =>
+    llamar<void>("instalar_servidor", { respaldo }),
   conectar: () => llamar<ResultadoConexion>("conectar"),
   conectarManual: (direccion: string) =>
     llamar<ResultadoConexion>("conectar_manual", { direccion }),
@@ -94,4 +100,8 @@ export const api = {
     llamar<{ canceladas: number }>("cancelar_grupo", { grupo, desde }),
   exportarCsv: (desde: string, hasta: string, ruta: string) =>
     llamar<number>("exportar_csv", { desde, hasta, ruta }),
+  estadoCopias: () => llamar<EstadoCopias>("estado_copias"),
+  abrirAvanzado: (clave: string) => llamar<boolean>("abrir_avanzado", { clave }),
+  cambiarModo: (modo: ModoEquipo) => llamar<void>("cambiar_modo", { modo }),
+  promoverAServidor: () => llamar<void>("promover_a_servidor"),
 };

@@ -107,3 +107,33 @@ hay que apartarlo.
 ## ADR-019 · 2026-11-05 · aceptada — CRT estático en Windows
 → `.cargo/config.toml` con `+crt-static` para MSVC. → El exe no depende de `VCRUNTIME140.dll`, ausente en un
 Windows limpio (RNF-05).
+
+## ADR-020 · 2026-11-06 · aceptada — Tres modos de equipo, elegidos al instalar
+El CESFAM pidió varios PC con permiso de escritura y otros de solo lectura, sin presupuesto para
+un servidor real. → Cada instalación de la app tiene un **modo** guardado en `cliente.json`:
+`servidor` (además corre la API como servicio, T-4.2), `escritura` o `lectura`. Se elige una sola
+vez en un asistente al primer inicio. El modo `lectura` oculta toda acción que modifica datos.
+→ **La API no distingue equipos**: no hay tokens, cuentas ni aprobaciones. Decisión del responsable:
+los datos no son críticos ni delicados, no hay salida a internet y el peor caso es una broma que
+confunde horarios. Quien quiera escribir desde un equipo de lectura puede; se acepta.
+Debe haber al menos dos equipos de escritura contando el servidor.
+
+## ADR-021 · 2026-11-06 · aceptada — Copia diaria de la base en los equipos de escritura
+Si el disco del servidor muere se pierde todo, porque los respaldos de RF-11 viven en el mismo
+disco. → Cada equipo en modo `escritura` pide al servidor, una vez al día, una copia consistente de
+la base (`GET /respaldo`, API de backup de SQLite) y la guarda en su propio disco, conservando las
+últimas 7. Viene activado por defecto y no hay que configurar nada. **El equipo pide la copia**, no
+el servidor la envía: solo el servidor necesita el puerto abierto (ya lo está). → Se pierde como
+máximo un día de reservas, aceptable para el CESFAM. Solo hay copia si la app del equipo de
+escritura se abre al menos una vez cada día.
+
+## ADR-022 · 2026-11-06 · aceptada — Promoción a servidor oculta, solo si el servidor murió
+El servidor es siempre el mismo PC hasta que muera. → Un equipo de `escritura` puede convertirse en
+servidor desde una opción **oculta** (atajo `Ctrl+Alt+Shift+S`) protegida por una clave fija en el
+código, `sum41rules`. No es seguridad: solo evita que un funcionario cambie modos por curiosidad.
+La promoción restaura la copia más reciente como base, instala la API como servicio y cambia el
+modo a `servidor`. Los demás equipos lo encuentran solos por UDP (RF-09). → **Antes de promover, la
+app busca un servidor por UDP y, si alguno responde, se niega.** El antiguo servidor no vuelve a
+ser servidor: se desinstala (`desinstalar.bat`) y se reinstala limpio en otro modo. No hay vuelta
+atrás automática ni sincronización entre servidores: es un respaldo de emergencia, no un sistema
+distribuido. La misma opción oculta permite cambiar entre `escritura` y `lectura`.

@@ -88,6 +88,9 @@ export interface FiltroBoxesLibres {
   etiqueta_id: number | null;
 }
 
+/** Modo de operación del equipo en la red (RF-16, RF-17, ADR-020). */
+export type ModoEquipo = "servidor" | "escritura" | "lectura";
+
 export interface Horario {
   hora_inicio: number;
   minutos_por_bloque: number;
@@ -116,3 +119,9 @@ export type EstadoConexion =
   | { tipo: "conectado"; equipo: string }
   | { tipo: "buscando" }
   | { tipo: "sin_conexion"; mensaje: string };
+
+/** Estado de las copias locales de respaldo en este equipo (RF-18, ADR-021). */
+export interface EstadoCopias {
+  ultima: string | null;
+  cantidad: number;
+}

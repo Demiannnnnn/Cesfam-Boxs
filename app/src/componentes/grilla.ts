@@ -13,6 +13,7 @@ import {
   etiquetaDeBox,
   etiquetaDeFuncionario,
   etiquetasActivas,
+  puedeEscribir,
   rangoHorario,
 } from "../estado";
 import { bloquesTerminados, hoy } from "../fechas";
@@ -212,6 +213,15 @@ function celdaLibre(box: BoxAtencion, bloque: number, contexto: Contexto): HTMLT
   const clases = ["celda", "celda--libre"];
   if (bloque < contexto.terminados) clases.push("celda--pasada");
   if (bloque === contexto.enCurso) clases.push("celda--actual");
+
+  if (!puedeEscribir()) {
+    clases.push("celda--solo-lectura");
+    const span = el("span", { clase: clases.join(" ") });
+    const celda = td(bloque, 1, contexto);
+    celda.append(span);
+    return celda;
+  }
+
   const boton = el("button", {
     clase: clases.join(" "),
     atributos: {
@@ -246,6 +256,7 @@ interface Arrastre {
 let arrastre: Arrastre | null = null;
 
 function iniciarArrastre(box: BoxAtencion, bloque: number, boton: HTMLElement, acciones: AccionesGrilla): void {
+  if (!puedeEscribir()) return;
   const fila = boton.closest("tr");
   if (!fila) return;
   arrastre = { box, inicio: bloque, fin: bloque, fila, acciones };

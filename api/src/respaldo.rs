@@ -2,6 +2,7 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use chrono::NaiveDateTime;
 use rusqlite::{params, Connection};
@@ -11,6 +12,8 @@ pub const RESPALDOS_A_CONSERVAR: usize = 30;
 
 const PREFIJO: &str = "gestion-box-";
 const EXTENSION: &str = ".db";
+
+static CONTADOR_ENVIO: AtomicU64 = AtomicU64::new(1);
 
 /// Error al respaldar.
 #[derive(Debug, thiserror::Error)]
@@ -37,6 +40,24 @@ pub fn respaldar(
         ruta = carpeta.join(format!("{base}-{sufijo}{EXTENSION}"));
         sufijo += 1;
     }
+    // El destino va como parámetro, nunca concatenado (RNF-06).
+    conn.execute("VACUUM INTO ?1", params![ruta.to_string_lossy()])?;
+    Ok(ruta)
+}
+
+/// Genera una copia consistente de la base para enviar al cliente (RF-18, ADR-021).
+///
+/// Reutiliza `VACUUM INTO ?1`, que es la forma consistente ya usada por RF-11 (produce
+/// una copia consistente aun con la base en modo WAL sin requerir dependencias adicionales).
+/// El temporal se llama `envio-<pid>-<contador>.tmp` en la carpeta de respaldos, para que
+/// nunca coincida con el patrón `gestion-box-*.db` que usa [`rotar`]. Crea la carpeta si
+/// no existe.
+pub fn copia_para_enviar(conn: &Connection, carpeta: &Path) -> Result<PathBuf, ErrorRespaldo> {
+    std::fs::create_dir_all(carpeta)?;
+    let contador = CONTADOR_ENVIO.fetch_add(1, Ordering::Relaxed);
+    let nombre = format!("envio-{}-{}.tmp", std::process::id(), contador);
+    let ruta = carpeta.join(nombre);
+    // VACUUM INTO es la forma consistente ya usada por RF-11.
     // El destino va como parámetro, nunca concatenado (RNF-06).
     conn.execute("VACUUM INTO ?1", params![ruta.to_string_lossy()])?;
     Ok(ruta)
@@ -146,5 +167,39 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM box", [], |f| f.get(0))
             .unwrap();
         assert_eq!(cantidad, 1);
+    }
+
+    #[test]
+    fn copia_para_enviar_produce_copia_valida_y_no_coincide_con_rotacion() {
+        let carpeta = tempfile::tempdir().unwrap();
+        let conn = db::abrir_en_memoria().unwrap();
+        conn.execute("INSERT INTO box (nombre) VALUES ('Box Copia')", [])
+            .unwrap();
+
+        let ruta = copia_para_enviar(&conn, carpeta.path()).unwrap();
+        assert!(ruta.exists());
+
+        // El temporal no debe coincidir con el patrón gestion-box-*.db que usa rotar.
+        let nombre = ruta.file_name().unwrap().to_str().unwrap();
+        assert!(nombre.starts_with("envio-"));
+        assert!(nombre.ends_with(".tmp"));
+        assert!(!nombre.starts_with(PREFIJO));
+
+        // rotar no debe borrarlo ni considerarlo
+        let borrados = rotar(carpeta.path(), 0).unwrap();
+        assert_eq!(borrados, 0);
+        assert!(ruta.exists());
+
+        // La copia contiene los datos y es consistente
+        let copia = Connection::open(&ruta).unwrap();
+        let cantidad: i64 = copia
+            .query_row("SELECT COUNT(*) FROM box", [], |f| f.get(0))
+            .unwrap();
+        assert_eq!(cantidad, 1);
+
+        let integridad: String = copia
+            .query_row("PRAGMA integrity_check", [], |f| f.get(0))
+            .unwrap();
+        assert_eq!(integridad, "ok");
     }
 }

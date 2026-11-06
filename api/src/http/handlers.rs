@@ -1,8 +1,13 @@
 //! Handlers HTTP: extraer → llamar al servicio → responder. Sin lógica de negocio.
 
-use axum::extract::State;
+use std::net::SocketAddr;
+
+use axum::body::Body;
+use axum::extract::{ConnectInfo, State};
+use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
+use axum::http::request::Parts;
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use gestion_box_shared::{
     CambiosBox, CambiosEtiqueta, CambiosFuncionario, ConsultaBoxesLibres, ConsultaBuscarReservas,
@@ -13,6 +18,7 @@ use serde::Deserialize;
 use super::extractores::{JsonApi, PathApi, QueryApi};
 use super::ErrorApi;
 use crate::estado::AppState;
+use crate::respaldo;
 use crate::servicio::{self, ConsultaReservas};
 
 type Resultado<T> = Result<T, ErrorApi>;
@@ -27,6 +33,82 @@ pub async fn salud(State(estado): State<AppState>) -> Resultado<Json<EstadoSalud
         version: estado.info.version.clone(),
         equipo: estado.info.equipo.clone(),
     }))
+}
+
+/// `GET /respaldo` (RF-18, ADR-020, ADR-021).
+///
+/// Entrega una copia consistente de la base SQLite para la copia diaria en los equipos
+/// de escritura. El archivo temporal se lee en memoria y se elimina antes de responder.
+pub async fn descargar_respaldo(
+    State(estado): State<AppState>,
+    partes: Parts,
+) -> Resultado<Response> {
+    let ip = partes
+        .extensions
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ci| ci.0.ip().to_string())
+        .unwrap_or_else(|| "desconocida".to_owned());
+
+    tracing::info!(ip = %ip, "entregando copia de respaldo");
+
+    let db = estado.conexion();
+    let carpeta = estado.carpeta_respaldos.clone();
+
+    let bytes = tokio::task::spawn_blocking(move || {
+        let ruta_temporal = {
+            let conn = db
+                .lock()
+                .unwrap_or_else(|envenenado| envenenado.into_inner());
+            respaldo::copia_para_enviar(&conn, &carpeta)
+        };
+
+        let ruta = match ruta_temporal {
+            Ok(r) => r,
+            Err(error) => {
+                tracing::error!(%error, "no se pudo crear la copia temporal para el respaldo");
+                return Err(ErrorApi::error_interno(
+                    "Ocurrió un error al generar la copia de respaldo",
+                ));
+            }
+        };
+
+        let resultado_lectura = std::fs::read(&ruta);
+        // Borrar el temporal SIEMPRE, incluso si la lectura falló.
+        if let Err(error) = std::fs::remove_file(&ruta) {
+            tracing::warn!(%error, ruta = %ruta.display(), "no se pudo borrar el archivo temporal de respaldo");
+        }
+
+        match resultado_lectura {
+            Ok(contenido) => Ok(contenido),
+            Err(error) => {
+                tracing::error!(%error, ruta = %ruta.display(), "no se pudo leer el archivo temporal de respaldo");
+                Err(ErrorApi::error_interno(
+                    "Ocurrió un error al leer la copia de respaldo",
+                ))
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|error| {
+        tracing::error!(%error, "la tarea de respaldo terminó con pánico");
+        Err(ErrorApi::error_interno(
+            "Ocurrió un error interno al generar la copia de respaldo",
+        ))
+    })?;
+
+    let ahora = chrono::Local::now();
+    let nombre_archivo = ahora.format("gestion-box-%Y%m%d-%H%M%S.db");
+    let valor_disposition = format!("attachment; filename=\"{nombre_archivo}\"");
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(CONTENT_TYPE, "application/octet-stream")
+        .header(CONTENT_DISPOSITION, valor_disposition)
+        .body(Body::from(bytes))
+        .map_err(|error| {
+            tracing::error!(%error, "error al construir la respuesta del respaldo");
+            ErrorApi::error_interno("Ocurrió un error al preparar la respuesta")
+        })
 }
 
 /// Parámetros de listados con filtro de estado (`GET /boxes`, `GET /etiquetas`, `GET /funcionarios`).

@@ -110,3 +110,15 @@ cumplida. Plantilla: [`_plantilla.md`](_plantilla.md).
 | [T-7.1](fase-7/T-7.1-api-funcionarios-etiquetas.md) | API: funcionarios registrados y etiquetas con color | RF-13, RF-14 | fase 6 | completada |
 | [T-7.2](fase-7/T-7.2-app-funcionarios-etiquetas.md) | App: apartados de funcionarios y etiquetas, reserva por funcionario registrado, colores | RF-13, RF-14 | T-7.1 | implementada — validación manual pendiente |
 | [T-7.3](fase-7/T-7.3-busqueda.md) | Búsqueda de reservas y de boxes libres | RF-15 | T-7.1, T-7.2 | implementada — validación manual pendiente |
+
+### Fase 8 — Varios equipos: modos, copia diaria y servidor de reemplazo (ADR-020 a ADR-022)
+
+| ID | Tarea | Cubre | Depende de | Estado |
+|---|---|---|---|---|
+| [T-8.1](fase-8/T-8.1-modo-del-equipo.md) | Modo del equipo y asistente de primer inicio | RF-16, RF-17 | fase 7 | implementada — validación manual pendiente |
+| [T-8.2](fase-8/T-8.2-instalar-servidor-desde-la-app.md) | Instalar el servidor desde la app | RF-16, RNF-12, RNF-14 | T-8.1, T-4.2, T-4.4 | implementada — validación manual pendiente |
+| [T-8.3](fase-8/T-8.3-api-respaldo.md) | API: entregar una copia consistente de la base | RF-18 | fase 7 | completada |
+| [T-8.4](fase-8/T-8.4-copia-diaria.md) | Copia diaria en los equipos de escritura | RF-18 | T-8.1, T-8.3 | implementada — validación manual pendiente |
+| [T-8.5](fase-8/T-8.5-servidor-de-reemplazo.md) | Opción oculta: servidor de reemplazo y cambio de modo | RF-19 | T-8.2, T-8.4 | implementada — validación manual pendiente |
+| [T-8.6](fase-8/T-8.6-documentacion-fase-8.md) | Documentación de la fase 8 | RF-16 a RF-19 | T-8.1 a T-8.5 | completada |
+| [T-8.7](fase-8/T-8.7-instalador-ci.md) | Construir el instalador en GitHub Actions | RNF-12, RNF-13 | T-8.2, T-8.6 | implementada — validación manual pendiente |

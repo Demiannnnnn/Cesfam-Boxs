@@ -1,8 +1,9 @@
 //! Comandos `invoke` expuestos a la interfaz. Cada comando es delgado: obtiene el
 //! cliente, llama a la API y traduce el error a [`ErrorUi`].
 
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
 use gestion_box_shared::horario::Horario;
 use gestion_box_shared::{
@@ -16,17 +17,20 @@ use tauri::State;
 
 use crate::cliente_api::{host_de, normalizar_direccion, ClienteApi, ErrorCliente};
 use crate::conexion::{self, Servidor};
-use crate::config_local::ConfigLocal;
+use crate::config_local::{ConfigLocal, ModoEquipo};
 use crate::errores::{error_para_ui, ErrorUi, MENSAJE_NO_ENCONTRADO_EN_RED};
 use crate::exportar;
 
 type Resultado<T> = Result<T, ErrorUi>;
 
-/// Estado de la app compartido entre comandos.
+/// Estado de la app compartido entre comandos y la tarea de respaldo.
+#[derive(Clone)]
 pub struct EstadoApp {
     ruta_config: PathBuf,
-    config: Mutex<ConfigLocal>,
-    cliente: Mutex<Option<ClienteApi>>,
+    config: Arc<Mutex<ConfigLocal>>,
+    cliente: Arc<Mutex<Option<ClienteApi>>>,
+    notificador_copia: Arc<tokio::sync::Notify>,
+    en_descarga: Arc<AtomicBool>,
 }
 
 impl EstadoApp {
@@ -35,19 +39,21 @@ impl EstadoApp {
         let config = ConfigLocal::cargar(&ruta_config);
         Self {
             ruta_config,
-            config: Mutex::new(config),
-            cliente: Mutex::new(None),
+            config: Arc::new(Mutex::new(config)),
+            cliente: Arc::new(Mutex::new(None)),
+            notificador_copia: Arc::new(tokio::sync::Notify::new()),
+            en_descarga: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    fn config(&self) -> ConfigLocal {
+    pub fn config(&self) -> ConfigLocal {
         self.config
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone()
     }
 
-    fn modificar_config(&self, cambio: impl FnOnce(&mut ConfigLocal)) {
+    pub fn modificar_config(&self, cambio: impl FnOnce(&mut ConfigLocal)) {
         let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
         let antes = config.clone();
         cambio(&mut config);
@@ -58,6 +64,55 @@ impl EstadoApp {
         }
     }
 
+    fn fijar_modo(&self, modo: ModoEquipo) -> Resultado<()> {
+        let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
+        config
+            .fijar_modo_inicial(modo)
+            .map_err(ErrorUi::datos_invalidos)?;
+        if let Err(error) = config.guardar(&self.ruta_config) {
+            eprintln!("[gestion-box] no se pudo guardar cliente.json: {error}");
+            return Err(ErrorUi::new(
+                "interno",
+                "No se pudo guardar la configuración del equipo.",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Cambia el modo del equipo entre escritura y lectura guardando la configuración (RF-19, ADR-022).
+    pub fn cambiar_modo(&self, nuevo: ModoEquipo) -> Resultado<()> {
+        let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
+        config
+            .cambiar_entre_escritura_y_lectura(nuevo)
+            .map_err(ErrorUi::datos_invalidos)?;
+        if let Err(error) = config.guardar(&self.ruta_config) {
+            eprintln!("[gestion-box] no se pudo guardar cliente.json: {error}");
+            return Err(ErrorUi::new(
+                "interno",
+                "No se pudo guardar la configuración del equipo.",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Registra la instalación exitosa del servidor local en este equipo (RF-16, RNF-12).
+    pub fn registrar_servidor_local(&self, equipo: String) -> Resultado<()> {
+        let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
+        config
+            .pasar_a_servidor()
+            .map_err(ErrorUi::datos_invalidos)?;
+        config.servidor = Some("127.0.0.1:8000".to_owned());
+        config.equipo_servidor = Some(equipo);
+        if let Err(error) = config.guardar(&self.ruta_config) {
+            eprintln!("[gestion-box] no se pudo guardar cliente.json: {error}");
+            return Err(ErrorUi::new(
+                "interno",
+                "No se pudo guardar la configuración del servidor.",
+            ));
+        }
+        Ok(())
+    }
+
     fn cliente(&self) -> Resultado<ClienteApi> {
         self.cliente
             .lock()
@@ -66,7 +121,7 @@ impl EstadoApp {
             .ok_or_else(ErrorUi::sin_servidor)
     }
 
-    /// Fija el servidor actual y lo recuerda (RF-10).
+    /// Fija el servidor actual y lo recuerda (RF-10). Notifica a la tarea de respaldo.
     fn usar_servidor(&self, servidor: &Servidor) -> Resultado<()> {
         let cliente =
             ClienteApi::new(&servidor.direccion).map_err(|e| error_para_ui(&e, None, None))?;
@@ -75,7 +130,32 @@ impl EstadoApp {
             config.servidor = Some(servidor.direccion.clone());
             config.equipo_servidor = Some(servidor.equipo.clone());
         });
+        self.notificador_copia.notify_one();
         Ok(())
+    }
+
+    /// Obtiene el cliente de la API si ya está conectado.
+    pub fn obtener_cliente(&self) -> Option<ClienteApi> {
+        self.cliente
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    /// Carpeta donde este equipo almacena sus copias de respaldo (RF-18, ADR-021).
+    pub fn carpeta_copias(&self) -> PathBuf {
+        let dir = self.ruta_config.parent().unwrap_or(Path::new("."));
+        crate::copia_diaria::carpeta_copias(dir)
+    }
+
+    /// Notificador para despertar la tarea de respaldo al conectar.
+    pub fn notificador_copia(&self) -> Arc<tokio::sync::Notify> {
+        self.notificador_copia.clone()
+    }
+
+    /// Bandera atómica que evita descargas simultáneas.
+    pub fn en_descarga(&self) -> Arc<AtomicBool> {
+        self.en_descarga.clone()
     }
 
     /// Traduce un error de red usando el nombre del servidor conocido.
@@ -124,6 +204,24 @@ pub fn preferencias(estado: State<'_, EstadoApp>) -> Preferencias {
         ultimo_funcionario_id: config.ultimo_funcionario_id,
         servidor: config.servidor,
     }
+}
+
+/// Modo de operación configurado en este equipo, o `None` en el primer inicio. Cubre RF-16 y RF-17.
+#[tauri::command]
+pub fn modo_equipo(estado: State<'_, EstadoApp>) -> Option<ModoEquipo> {
+    estado.config().modo
+}
+
+/// Fija el modo de operación en el primer inicio. Falla si ya tiene un modo (RF-16).
+#[tauri::command]
+pub fn elegir_modo(estado: State<'_, EstadoApp>, modo: ModoEquipo) -> Resultado<()> {
+    estado.fijar_modo(modo)
+}
+
+/// Consulta el estado de las copias locales de respaldo (RF-18, ADR-021).
+#[tauri::command]
+pub fn estado_copias(estado: State<'_, EstadoApp>) -> crate::copia_diaria::EstadoCopias {
+    crate::copia_diaria::estado_copias(&estado.carpeta_copias())
 }
 
 /// Descubre el servidor: guardada → localhost → broadcast (RF-09, RNF-08).
@@ -512,5 +610,24 @@ mod tests {
 
         let error = parsear_bloque(24).unwrap_err();
         assert_eq!(error.codigo, "datos_invalidos");
+    }
+
+    #[test]
+    fn elegir_modo_funciona_con_none_y_falla_si_ya_existe() {
+        let carpeta = tempfile::tempdir().unwrap();
+        let ruta = carpeta.path().join("cliente.json");
+        let estado = EstadoApp::cargar(ruta);
+
+        assert_eq!(estado.config().modo, None);
+
+        // Primer inicio: fijar modo exitosamente
+        assert!(estado.fijar_modo(ModoEquipo::Escritura).is_ok());
+        assert_eq!(estado.config().modo, Some(ModoEquipo::Escritura));
+
+        // Intento posterior: rechazar con mensaje en español
+        let error = estado.fijar_modo(ModoEquipo::Lectura).unwrap_err();
+        assert_eq!(error.codigo, "datos_invalidos");
+        assert_eq!(error.mensaje, "El modo del equipo ya fue configurado.");
+        assert_eq!(estado.config().modo, Some(ModoEquipo::Escritura));
     }
 }

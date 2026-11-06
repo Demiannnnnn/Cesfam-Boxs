@@ -7,13 +7,14 @@
 import { api } from "../api";
 import { PALETA_ETIQUETAS } from "../colores";
 import { boton, campo, el } from "../dom";
-import { estado } from "../estado";
+import { estado, puedeEscribir } from "../estado";
 import { textos } from "../textos";
 import type { ErrorUi, Etiqueta } from "../tipos";
 import { abrirDialogo } from "./dialogo";
 import { crearSelectorColor } from "./formulario";
 
 export function abrirEtiquetas(alCerrar: () => void): void {
+  if (!puedeEscribir()) return;
   const dialogo = abrirDialogo(textos.etiquetas.titulo, alCerrar);
   const lista = el("div", { clase: "lista-admin" });
   const inputNombre = el("input", { atributos: { type: "text", maxlength: "40" } });

@@ -8,6 +8,8 @@
  *   en el siguiente ciclo intenta redescubrir el servidor.
  */
 import { api } from "./api";
+import { mostrarAsistente } from "./componentes/asistente";
+import { abrirAvanzado } from "./componentes/avanzado";
 import { mostrarAviso } from "./componentes/aviso";
 import { abrirBuscar, type AccionesBuscar } from "./componentes/buscar";
 import { renderizarConexion } from "./componentes/conexion";
@@ -19,7 +21,7 @@ import { abrirBoxes, abrirConexionManual, abrirDetalle, abrirExportar } from "./
 import { abrirReservar, type AccionesReserva } from "./componentes/reservar";
 import { renderizarSemana } from "./componentes/semana";
 import { el, porId } from "./dom";
-import { estado, etiquetasActivas, funcionariosActivos, type Vista } from "./estado";
+import { estado, etiquetasActivas, funcionariosActivos, puedeEscribir, type Vista } from "./estado";
 import { diaHabil, diasHabilesDeSemana, fechaLarga, hoy, inicioSemana, sumarDias, tituloSemana } from "./fechas";
 import { textos } from "./textos";
 import type { ErrorUi, Reserva, ResultadoConexion } from "./tipos";
@@ -38,6 +40,10 @@ const elementos = {
   filtro: porId<HTMLInputElement>("filtro-funcionario"),
   filtroEtiqueta: porId<HTMLSelectElement>("filtro-etiqueta"),
   listaFuncionarios: porId<HTMLDataListElement>("lista-funcionarios"),
+  btnBoxes: porId<HTMLButtonElement>("btn-boxes"),
+  btnFuncionarios: porId<HTMLButtonElement>("btn-funcionarios"),
+  btnEtiquetas: porId<HTMLButtonElement>("btn-etiquetas"),
+  indicadorSoloConsulta: porId<HTMLSpanElement>("indicador-solo-consulta"),
 };
 
 let temporizador: number | undefined;
@@ -59,6 +65,7 @@ const accionesReserva: AccionesReserva = {
 const accionesBuscar: AccionesBuscar = {
   alIrADia: (fecha) => cambiarVista("dia", fecha),
   alReservarBox: (box, fecha, desde, hasta) => {
+    if (!puedeEscribir()) return;
     abrirReservar(box, fecha, desde, hasta, accionesReserva);
   },
 };
@@ -83,17 +90,30 @@ function renderizar(): void {
   elementos.vistaDia.setAttribute("aria-pressed", String(estado.vista === "dia"));
   elementos.vistaSemana.setAttribute("aria-pressed", String(estado.vista === "semana"));
 
+  const escribir = puedeEscribir();
+  elementos.btnBoxes.hidden = !escribir;
+  elementos.btnFuncionarios.hidden = !escribir;
+  elementos.btnEtiquetas.hidden = !escribir;
+  elementos.indicadorSoloConsulta.hidden = estado.modo !== "lectura";
+  elementos.indicadorSoloConsulta.textContent = textos.barra.soloConsulta;
+
   if (estado.vista === "semana") {
     elementos.fechaLarga.textContent = tituloSemana(estado.fecha);
     renderizarSemana(elementos.grilla, {
-      alReservar: (box, fecha, desde) => abrirReservar(box, fecha, desde, null, accionesReserva),
+      alReservar: (box, fecha, desde) => {
+        if (!puedeEscribir()) return;
+        abrirReservar(box, fecha, desde, null, accionesReserva);
+      },
       alVerDia: (fecha) => cambiarVista("dia", fecha),
     });
     return;
   }
   elementos.fechaLarga.textContent = fechaLarga(estado.fecha);
   renderizarGrilla(elementos.grilla, {
-    alElegirLibre: (box, desde, hasta) => abrirReservar(box, estado.fecha, desde, hasta, accionesReserva),
+    alElegirLibre: (box, desde, hasta) => {
+      if (!puedeEscribir()) return;
+      abrirReservar(box, estado.fecha, desde, hasta, accionesReserva);
+    },
     alElegirOcupada: (tramo) => abrirDetalle(tramo, () => void refrescar()),
   });
 }
@@ -214,11 +234,48 @@ function enlazarEventos(): void {
     renderizar();
   });
   porId("btn-buscar").addEventListener("click", () => abrirBuscar(accionesBuscar));
-  porId("btn-funcionarios").addEventListener("click", () => abrirFuncionarios(() => void refrescar()));
-  porId("btn-etiquetas").addEventListener("click", () => abrirEtiquetas(() => void refrescar()));
-  porId("btn-boxes").addEventListener("click", () => abrirBoxes(() => void refrescar()));
+  porId("btn-funcionarios").addEventListener("click", () => {
+    if (!puedeEscribir()) return;
+    abrirFuncionarios(() => void refrescar());
+  });
+  porId("btn-etiquetas").addEventListener("click", () => {
+    if (!puedeEscribir()) return;
+    abrirEtiquetas(() => void refrescar());
+  });
+  porId("btn-boxes").addEventListener("click", () => {
+    if (!puedeEscribir()) return;
+    abrirBoxes(() => void refrescar());
+  });
   porId("btn-exportar").addEventListener("click", () => abrirExportar());
   document.addEventListener("keydown", (evento) => {
+    if (
+      (evento.ctrlKey || evento.metaKey) &&
+      evento.altKey &&
+      evento.shiftKey &&
+      evento.code === "KeyS"
+    ) {
+      evento.preventDefault();
+      if (!hayDialogoAbierto()) {
+        abrirAvanzado({
+          alCambiarModo: (nuevoModo) => {
+            estado.modo = nuevoModo;
+            renderizar();
+          },
+          alPromoverAServidor: async () => {
+            estado.modo = "servidor";
+            renderizar();
+            try {
+              const res = await api.conectar();
+              alConectar(res);
+            } catch (e) {
+              mostrarAviso((e as ErrorUi).mensaje);
+            }
+            void refrescar();
+          },
+        });
+      }
+      return;
+    }
     if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === "f") {
       evento.preventDefault();
       if (!hayDialogoAbierto()) {
@@ -236,9 +293,19 @@ async function iniciar(): Promise<void> {
   enlazarEventos();
   renderizar();
   try {
-    const [horario, preferencias] = await Promise.all([api.horario(), api.preferencias()]);
+    const [horario, preferencias, modoGuardado] = await Promise.all([
+      api.horario(),
+      api.preferencias(),
+      api.modoEquipo(),
+    ]);
     estado.horario = horario;
     estado.ultimoFuncionarioId = preferencias.ultimo_funcionario_id ?? null;
+
+    let modo = modoGuardado;
+    if (modo === null) {
+      modo = await mostrarAsistente();
+    }
+    estado.modo = modo;
     renderizar();
 
     const resultado = await api.conectar();

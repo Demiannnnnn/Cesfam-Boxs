@@ -6,7 +6,7 @@
  */
 import { colorTexto } from "../colores";
 import { el } from "../dom";
-import { coincideFiltro, estado, etiquetaDeFuncionario, rangoHorario } from "../estado";
+import { coincideFiltro, estado, etiquetaDeFuncionario, puedeEscribir, rangoHorario } from "../estado";
 import { diaCorto, diasHabilesDeSemana, hoy } from "../fechas";
 import { textos } from "../textos";
 import type { BoxAtencion, Horario, Reserva } from "../tipos";
@@ -164,8 +164,11 @@ function celda(
   reservas: Reserva[],
   deshabilitada: boolean,
   acciones: AccionesSemana,
-): HTMLButtonElement {
+): HTMLElement {
   if (reservas.length === 0) {
+    if (!puedeEscribir()) {
+      return el("span", { clase: "celda celda--libre celda--solo-lectura" });
+    }
     const etiqueta = textos.semana.reservarEn(box.nombre, diaCorto(fecha), periodo.etiqueta);
     const boton = el("button", {
       clase: "celda celda--libre",

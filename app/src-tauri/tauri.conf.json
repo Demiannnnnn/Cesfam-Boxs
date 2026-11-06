@@ -28,7 +28,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["msi"],
+    "targets": [
+      "msi",
+      "nsis"
+    ],
+    "resources": [
+      "servidor/*"
+    ],
     "category": "Productivity",
     "shortDescription": "Reserva de boxes de atención del CESFAM",
     "icon": [
@@ -40,7 +46,12 @@
     ],
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper" },
-      "wix": { "language": "es-ES" }
+      "wix": { "language": "es-ES" },
+      "nsis": {
+        "languages": [
+          "Spanish"
+        ]
+      }
     }
   }
 }

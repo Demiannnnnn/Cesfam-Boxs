@@ -14,6 +14,7 @@ import {
   etiquetaDeFuncionario,
   nombreBox,
   normalizarTexto,
+  puedeEscribir,
   rangoHorario,
 } from "../estado";
 import { fechaCorta, hoy, sumarDias } from "../fechas";
@@ -370,15 +371,17 @@ function filaBoxLibre(
   acciones: AccionesBuscar,
 ): HTMLElement {
   const etiqueta = etiquetaDeBox(box);
-  const btnReservar = el("button", {
-    clase: "boton boton--primario boton--chico",
-    texto: textos.buscar.reservar,
-    atributos: { type: "button" },
-    alHacerClic: () => {
-      dialogo.cerrar();
-      acciones.alReservarBox(box, fecha, desde, hasta);
-    },
-  });
+  const btnReservar = puedeEscribir()
+    ? el("button", {
+        clase: "boton boton--primario boton--chico",
+        texto: textos.buscar.reservar,
+        atributos: { type: "button" },
+        alHacerClic: () => {
+          dialogo.cerrar();
+          acciones.alReservarBox(box, fecha, desde, hasta);
+        },
+      })
+    : null;
 
   return el(
     "div",

@@ -1,12 +1,15 @@
 //! Backend de la app de escritorio. Toda la red (HTTP y UDP) vive aquí;
 //! la interfaz solo invoca comandos (ADR-007).
 
+pub mod avanzado;
 pub mod cliente_api;
 pub mod comandos;
 pub mod conexion;
 pub mod config_local;
+pub mod copia_diaria;
 pub mod errores;
 pub mod exportar;
+pub mod servidor_local;
 
 use tauri::Manager;
 
@@ -20,12 +23,20 @@ pub fn ejecutar() {
         .setup(|app| {
             let carpeta = app.path().app_config_dir()?;
             let estado = comandos::EstadoApp::cargar(carpeta.join(ARCHIVO_CONFIG));
+            let estado_tarea = estado.clone();
             app.manage(estado);
+
+            tauri::async_runtime::spawn(async move {
+                copia_diaria::tarea_copia_diaria(estado_tarea).await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             comandos::horario,
             comandos::preferencias,
+            comandos::modo_equipo,
+            comandos::elegir_modo,
             comandos::conectar,
             comandos::conectar_manual,
             comandos::estado_salud,
@@ -47,6 +58,11 @@ pub fn ejecutar() {
             comandos::cancelar_reserva,
             comandos::cancelar_grupo,
             comandos::exportar_csv,
+            comandos::estado_copias,
+            servidor_local::instalar_servidor,
+            avanzado::abrir_avanzado,
+            avanzado::cambiar_modo,
+            avanzado::promover_a_servidor,
         ])
         .run(tauri::generate_context!());
 
